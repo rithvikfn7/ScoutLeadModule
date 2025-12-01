@@ -84,8 +84,8 @@ jobs:
           if [ -n "${{ github.event.inputs.service_name }}" ]; then
             SERVICE_NAME="${{ github.event.inputs.service_name }}"
           else
-            # Extract service name from repository name (e.g., org/my-service -> my-service)
-            SERVICE_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+            # Default to leads-module for frontend (matches K8s config)
+            SERVICE_NAME="leads-module"
           fi
           echo "service_name=${SERVICE_NAME}" >> $GITHUB_OUTPUT
           echo "✅ Service name: ${SERVICE_NAME}"
