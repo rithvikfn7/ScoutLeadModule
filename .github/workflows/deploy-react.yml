@@ -68,6 +68,9 @@ on:
       - '.gitignore'
       - 'README.md'
 
+permissions:
+  contents: read
+
 jobs:
   determine-service:
     runs-on: ubuntu-latest
