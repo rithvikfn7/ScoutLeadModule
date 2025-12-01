@@ -1,0 +1,101 @@
+name: Deploy Node.js Backend
+
+# Deployment workflow for Node.js backend
+# This triggers the base repository (fn7io/fn7) deployment pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      service_name:
+        description: "Service name (must match K8s app name, auto-detected from repo name if not provided)"
+        required: false
+        type: string
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
+      dockerfile:
+        description: "Path to Dockerfile (default: backend/Dockerfile)"
+        required: false
+        default: "backend/Dockerfile"
+        type: string
+      build_context:
+        description: "Docker build context (default: backend)"
+        required: false
+        default: "backend"
+        type: string
+      build_target:
+        description: "Docker build target (optional)"
+        required: false
+        type: string
+      commit_sha:
+        description: "Specific commit SHA to deploy (leave empty for latest)"
+        required: false
+        type: string
+      force_rebuild:
+        description: "Force rebuild even if image exists"
+        required: false
+        default: false
+        type: boolean
+      purge_cdn_cache:
+        description: "Purge CDN cache after deployment"
+        required: false
+        default: "false"
+        type: string
+      fastly_CDN_ID:
+        description: "Fastly CDN ID (optional)"
+        required: false
+        type: string
+      fastly_CDN_Edge_dictionary:
+        description: "Fastly CDN Edge Dictionary ID (optional)"
+        required: false
+        type: string
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'README.md'
+
+jobs:
+  determine-service:
+    runs-on: ubuntu-latest
+    outputs:
+      service_name: ${{ steps.service.outputs.service_name }}
+    steps:
+      - name: Determine service name
+        id: service
+        run: |
+          if [ -n "${{ github.event.inputs.service_name }}" ]; then
+            SERVICE_NAME="${{ github.event.inputs.service_name }}"
+          else
+            # Extract service name from repository name (e.g., org/my-service -> my-service)
+            SERVICE_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          fi
+          echo "service_name=${SERVICE_NAME}" >> $GITHUB_OUTPUT
+          echo "✅ Service name: ${SERVICE_NAME}"
+
+  deploy:
+    needs: determine-service
+    uses: fn7io/fn7/.github/workflows/reusable-deploy-external-node.yml@main
+    with:
+      source_repo: ${{ github.repository }}
+      source_ref: ${{ github.ref_name }}
+      service_name: ${{ needs.determine-service.outputs.service_name }}
+      dockerfile: ${{ github.event.inputs.dockerfile || 'backend/Dockerfile' }}
+      build_context: ${{ github.event.inputs.build_context || 'backend' }}
+      build_target: ${{ github.event.inputs.build_target || '' }}
+      environment: ${{ github.event.inputs.environment || 'dev' }}
+      commit_sha: ${{ github.event.inputs.commit_sha || github.sha }}
+      force_rebuild: ${{ github.event.inputs.force_rebuild || false }}
+      purge_cdn_cache: ${{ github.event.inputs.purge_cdn_cache || 'false' }}
+      fastly_CDN_ID: ${{ github.event.inputs.fastly_CDN_ID || '' }}
+      fastly_CDN_Edge_dictionary: ${{ github.event.inputs.fastly_CDN_Edge_dictionary || '' }}
+    secrets: inherit
+
