@@ -81,20 +81,31 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const dockerfile = '${{ github.event.inputs.dockerfile }}' || 'frontend/Dockerfile';
+            const buildContext = '${{ github.event.inputs.build_context }}' || 'frontend';
+            const reactAppDir = '${{ github.event.inputs.react_app_dir }}' || 'frontend';
+            const buildTarget = '${{ github.event.inputs.build_target }}' || '';
+            const environment = '${{ github.event.inputs.environment }}' || 'dev';
+            const commitSha = '${{ github.event.inputs.commit_sha }}' || '${{ github.sha }}';
+            const forceRebuild = '${{ github.event.inputs.force_rebuild }}' === 'true';
+            const purgeCdnCache = '${{ github.event.inputs.purge_cdn_cache }}' || 'false';
+            const fastlyCdnId = '${{ github.event.inputs.fastly_CDN_ID }}' || '';
+            const fastlyCdnEdgeDict = '${{ github.event.inputs.fastly_CDN_Edge_dictionary }}' || '';
+
             const inputs = {
               source_repo: '${{ github.repository }}',
               source_ref: '${{ github.ref_name }}',
               service_name: '${{ env.SERVICE_NAME }}',
-              dockerfile: '${{ github.event.inputs.dockerfile }}' || 'frontend/Dockerfile',
-              build_context: '${{ github.event.inputs.build_context }}' || 'frontend',
-              react_app_dir: '${{ github.event.inputs.react_app_dir }}' || 'frontend',
-              build_target: '${{ github.event.inputs.build_target }}' || '',
-              environment: '${{ github.event.inputs.environment }}' || 'dev',
-              commit_sha: '${{ github.event.inputs.commit_sha }}' || '${{ github.sha }}',
-              force_rebuild: ${{ github.event.inputs.force_rebuild }} || false,
-              purge_cdn_cache: '${{ github.event.inputs.purge_cdn_cache }}' || 'false',
-              fastly_CDN_ID: '${{ github.event.inputs.fastly_CDN_ID }}' || '',
-              fastly_CDN_Edge_dictionary: '${{ github.event.inputs.fastly_CDN_Edge_dictionary }}' || ''
+              dockerfile: dockerfile,
+              build_context: buildContext,
+              react_app_dir: reactAppDir,
+              build_target: buildTarget,
+              environment: environment,
+              commit_sha: commitSha,
+              force_rebuild: forceRebuild,
+              purge_cdn_cache: purgeCdnCache,
+              fastly_CDN_ID: fastlyCdnId,
+              fastly_CDN_Edge_dictionary: fastlyCdnEdgeDict
             };
 
             console.log('🚀 Triggering deployment in base repository...');
