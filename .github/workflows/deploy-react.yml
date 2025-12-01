@@ -113,13 +113,27 @@ jobs:
             console.log('🌍 Environment:', inputs.environment);
             console.log('📂 Source repo:', inputs.source_repo);
 
-            const response = await github.rest.actions.createWorkflowDispatch({
-              owner: 'fn7io',
-              repo: 'fn7',
-              workflow_id: 'deploy-external-react.yml',
-              ref: 'main',
-              inputs: inputs
-            });
+            // Try with full path first, fallback to filename
+            let response;
+            try {
+              response = await github.rest.actions.createWorkflowDispatch({
+                owner: 'fn7io',
+                repo: 'fn7',
+                workflow_id: '.github/workflows/deploy-external-react.yml',
+                ref: 'main',
+                inputs: inputs
+              });
+            } catch (error) {
+              // Fallback to just filename
+              console.log('⚠️  Trying with filename only...');
+              response = await github.rest.actions.createWorkflowDispatch({
+                owner: 'fn7io',
+                repo: 'fn7',
+                workflow_id: 'deploy-external-react.yml',
+                ref: 'main',
+                inputs: inputs
+              });
+            }
 
             console.log('✅ Deployment triggered successfully!');
             console.log('🔗 Check status at: https://github.com/fn7io/fn7/actions');
