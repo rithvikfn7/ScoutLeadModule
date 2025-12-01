@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: leads-module
+data:
+  REACT_APP_FIREBASE_CONFIG: '{"apiKey":"your-api-key","authDomain":"your-project.firebaseapp.com","projectId":"your-project-id","storageBucket":"your-project.appspot.com","messagingSenderId":"123456789","appId":"your-app-id"}'
+  REACT_APP_API_BASE_URL: "https://api.dev.example.com"
+  REACT_APP_ENV: "development"
+
