@@ -22,7 +22,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .page-title {
@@ -248,6 +248,8 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .cta-primary:hover:not(:disabled) {
@@ -265,6 +267,8 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .cta-secondary:hover:not(:disabled) {
@@ -423,7 +427,7 @@ thead {
 
 th {
   text-align: left;
-  padding: 16px;
+  padding: 16px 12px;
   font-weight: 600;
   color: var(--text-primary);
   border-bottom: 1px solid var(--border);
@@ -431,7 +435,7 @@ th {
 }
 
 td {
-  padding: 10px 16px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
@@ -604,6 +608,8 @@ tr:hover {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 8px;
+  flex-wrap: nowrap;
+  align-items: center;
 }
 
 .empty-state {
@@ -740,4 +746,27 @@ tr:hover {
   width: 60px;
   height: 24px;
   border-radius: 999px;
+}
+
+/* Lead link styles */
+.lead-link {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #000000;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: flex-start;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.lead-link-icon {
+  font-size: 12px;
+  margin-left: 4px;
+  display: inline;
+  transition: color 0.2s ease;
+}
+
+.lead-link:hover {
+  color: #1976d2;
 }

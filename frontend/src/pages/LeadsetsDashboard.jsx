@@ -19,7 +19,7 @@ export default function LeadsetsDashboard() {
   const [forceShowLoader, setForceShowLoader] = useState(true)
   
   // Get cached data from FN7 SDK reads
-  const { leadsets = [], isLoading = true, error, isInitialized = false, refreshCache } = useDataCache()
+  const { leadsets = [], isLoading = true, error, isInitialized = false, refreshCache, refreshCounter } = useDataCache()
   
   // Handle file upload and seed
   const handleSeedFromFile = useCallback(async (event) => {
@@ -32,21 +32,26 @@ export default function LeadsetsDashboard() {
       const text = await file.text()
       const data = JSON.parse(text)
       
-      // Support both array format and {leadsets: [...]} format
-      const leadsets = Array.isArray(data) ? data : (data.leadsets || [])
+      // Support:
+      // - Array format: [ {...}, {...} ]
+      // - Object with "leadsets": { leadsets: [...] }
+      // - Brain-style object with "lead_sets": { lead_sets: [...] }
+      const leadsetsArray = Array.isArray(data)
+        ? data
+        : (data.leadsets || data.lead_sets || [])
       const settings = data.settings || null
       
-      if (leadsets.length === 0) {
+      if (!Array.isArray(leadsetsArray) || leadsetsArray.length === 0) {
         setSeedStatus({ loading: false, message: 'Error: No leadsets found in file' })
         return
       }
       
-      setSeedStatus({ loading: true, message: `Seeding ${leadsets.length} leadsets...` })
+      setSeedStatus({ loading: true, message: `Seeding ${leadsetsArray.length} leadsets...` })
       
       const response = await fetch(`${API_BASE}/seed`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leadsets, settings }),
+        body: JSON.stringify({ leadsets: leadsetsArray, settings }),
       })
       
       if (!response.ok) {
@@ -128,6 +133,7 @@ export default function LeadsetsDashboard() {
   const showLoading = !isInitialized || isLoading || forceShowLoader
 
   const filteredLeadsets = useMemo(() => {
+    console.log('[Dashboard] Recomputing filteredLeadsets, refreshCounter:', refreshCounter, 'leadsets:', leadsets?.length)
     const term = searchTerm.trim().toLowerCase()
     return leadsets
       .filter((leadset) => {
@@ -159,7 +165,11 @@ export default function LeadsetsDashboard() {
         const dateB = new Date(b?.createdAt || 0).getTime()
         return dateB - dateA
       })
-  }, [leadsets, searchTerm, statusFilter, sortKey])
+  }, [leadsets, searchTerm, statusFilter, sortKey, refreshCounter])
+
+  const totalLeads = useMemo(() => {
+    return leadsets.reduce((sum, leadset) => sum + (leadset.est_count || 0), 0)
+  }, [leadsets])
   
 
   return (
@@ -169,7 +179,7 @@ export default function LeadsetsDashboard() {
           <div>
             <h1 className="page-title">Leadsets dashboard</h1>
             <p className="page-subtitle">
-              Leadsets flow in from Scout automatically. Choose one to view its buyers.
+              Scout has identified {leadsets.length} leadset{leadsets.length !== 1 ? 's' : ''} with {totalLeads.toLocaleString()} total lead{totalLeads !== 1 ? 's' : ''}
             </p>
           </div>
           <button

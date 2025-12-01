@@ -1,0 +1,267 @@
+{
+  "doc_id": "f3d5a1f2-6a21-4b83-8357-447a450e9076",
+  "doc_type": "LeadSetCollection",
+  "session_id": "f3d5a1f2-6a21-4b83-8357-447a450e9076",
+  "workspace_id": "3428444535",
+  "lead_sets": [
+    {
+      "name": "Health Food Retail Store Buyers",
+      "description": "Buyers/Merchandisers at specialty health food stores, organic supermarkets, and gourmet food shops stocking products like ours.",
+      "prompt": "Find corporate buyers and merchandisers working for retail chains or independent stores that prominently feature 'organic food', 'healthy snacks', 'gluten-free products', or 'nutritious spreads' in their inventory or company descriptions on LinkedIn. Focus on companies operating physical retail locations or specialized online health food stores in India. Look for roles like 'Buyer', 'Category Manager', 'Merchandiser', or 'Retail Operations Lead' in industries like 'Food & Beverage Retail' or 'Specialty Grocery'. They should be showing interest in stocking new, chemical-free, and high-nutrition CPG products.",
+      "segment": {
+        "segment_archetype": "Retail Buyer (Specialty Grocery)",
+        "geo_region": "India",
+        "firmographic_company_size": "51-200, 201-1000",
+        "technographic_stack": [],
+        "tribe": ["Specialty Retail", "Food Merchandising"]
+      },
+      "intent": {
+        "signals": [
+          "Posts discussing sourcing new natural/organic lines",
+          "Inquiries about distribution terms for healthy packaged foods",
+          "Mentions of shelf stocking or category reviews"
+        ],
+        "intent_tier": "Medium"
+      },
+      "enrichment_fields": [
+        "contact_email",
+        "contact_phone",
+        "has_linkedin_messaging",
+        "primary_contact_channel",
+        "lead_type",
+        "geo_location",
+        "company_size_band",
+        "buying_intent_level",
+        "buying_intent_reason",
+        "partnership_intent_level",
+        "partnership_intent_reason"
+      ],
+      "target": "retailer",
+      "est_count": 35,
+      "doc_id": "7601423405",
+      "status": "idle",
+      "lastRunId": null
+    },
+    {
+      "name": "Health & Wellness Food Distributors",
+      "description": "Distributors and wholesalers specializing in bringing premium, healthy, or organic CPGs into regional Indian markets.",
+      "prompt": "Identify professionals working for food distribution companies, wholesalers, or logistics partners in India whose company descriptions emphasize 'health foods distribution', 'organic supply chain', or 'national/regional food wholesale'. Target individuals with titles such as 'Distribution Manager', 'Sales Director', 'Supply Chain Head', or 'Business Development Manager' within Food & Beverage Distribution or Import/Export. They should show activity related to expanding their portfolio with natural, preservative-free FMCG items.",
+      "segment": {
+        "segment_archetype": "Distributor / Wholesaler",
+        "geo_region": "India",
+        "firmographic_company_size": "11-50, 51-200",
+        "technographic_stack": [],
+        "tribe": ["Food Distribution", "Wholesale Trade"]
+      },
+      "intent": {
+        "signals": [
+          "Discussions about expanding distribution footprint for CPGs",
+          "Searching for unique, certified food brands to represent",
+          "Mentions of supply chain optimization for temperature-sensitive or specialty goods"
+        ],
+        "intent_tier": "High"
+      },
+      "enrichment_fields": [
+        "contact_email",
+        "contact_phone",
+        "has_linkedin_messaging",
+        "primary_contact_channel",
+        "lead_type",
+        "geo_location",
+        "company_size_band",
+        "buying_intent_level",
+        "buying_intent_reason",
+        "partnership_intent_level",
+        "partnership_intent_reason"
+      ],
+      "target": "distributor",
+      "est_count": 25,
+      "doc_id": "2624803376",
+      "status": "idle",
+      "lastRunId": null
+    },
+    {
+      "name": "Family Health Blog & Recipe Creators",
+      "description": "Influencers and content creators focused on Indian family nutrition, healthy kid meals, and chemical-free living.",
+      "prompt": "Search for content creators, food bloggers, or influencers on LinkedIn who frequently post about 'Kids Nutrition', 'Healthy Indian Recipes', 'Chemical-Free Food', or 'Parenting Health Tips', aligning with the target audience segments (5531155570, 7797818157). Look for job titles like 'Food Blogger', 'Content Creator', 'Health Influencer', or 'Nutrition Advocate' in India. Their activity should heavily feature recipes or product reviews relevant to sauces, pasta, or healthy snacks.",
+      "segment": {
+        "segment_archetype": "Content Creator / Influencer",
+        "geo_region": "India",
+        "firmographic_company_size": "1-10",
+        "technographic_stack": [],
+        "tribe": ["#kidsnutrition", "#healthyeatingindia", "#parentingblogger"]
+      },
+      "intent": {
+        "signals": [
+          "Engagement with posts about new healthy product launches",
+          "Mentions of needing convenient yet healthy family food solutions",
+          "Discussions about ingredient transparency (chemical-free)"
+        ],
+        "intent_tier": "Medium"
+      },
+      "enrichment_fields": [
+        "contact_email",
+        "contact_phone",
+        "has_linkedin_messaging",
+        "primary_contact_channel",
+        "lead_type",
+        "geo_location",
+        "audience_overlap_score",
+        "audience_overlap_reason",
+        "estimated_reach_band"
+      ],
+      "target": "creator",
+      "est_count": 60,
+      "doc_id": "8246966508",
+      "status": "idle",
+      "lastRunId": null
+    },
+    {
+      "name": "Nutrition Consultants & Diet Experts",
+      "description": "Registered dietitians, nutritionists, and health coaches advising families on food choices in India.",
+      "prompt": "Find professionals on LinkedIn with titles like 'Registered Dietitian', 'Nutrition Consultant', 'Wellness Coach', or 'Clinical Nutritionist' based in India. Their profiles or associated company pages must mention expertise in 'pediatric nutrition', 'family wellness', or 'lifestyle disease management'. They are experts who recommend specific, high-quality, natural food products to their clients.",
+      "segment": {
+        "segment_archetype": "Domain Expert / Consultant",
+        "geo_region": "India",
+        "firmographic_company_size": "1-10, 11-50",
+        "technographic_stack": [],
+        "tribe": ["Nutrition Science", "Dietetics"]
+      },
+      "intent": {
+        "signals": [
+          "Content advising on 'reading food labels' or avoiding 'hidden sugars/preservatives'",
+          "Seeking partnerships for product endorsements or client recommendations",
+          "Sharing educational content about nutrient-dense foods"
+        ],
+        "intent_tier": "Medium"
+      },
+      "enrichment_fields": [
+        "contact_email",
+        "contact_phone",
+        "has_linkedin_messaging",
+        "primary_contact_channel",
+        "lead_type",
+        "geo_location",
+        "role_seniority_band",
+        "partnership_intent_level",
+        "partnership_intent_reason"
+      ],
+      "target": "expert",
+      "est_count": 45,
+      "doc_id": "4380408943",
+      "status": "idle",
+      "lastRunId": null
+    },
+    {
+      "name": "Health & Nutrition Investors (India)",
+      "description": "VCs and Angel investors actively funding early-stage FoodTech, Health CPG, or D2C brands in India.",
+      "prompt": "Identify individuals working at Venture Capital firms, Angel Networks, or as private equity partners in India who list 'FoodTech', 'Health & Wellness', 'CPG', or 'D2C' as an investment focus area. Look for roles such as 'Venture Partner', 'Associate', 'Principal', or 'Investor' whose recent activity mentions evaluating or participating in funding rounds for innovative food manufacturing or healthy living startups.",
+      "segment": {
+        "segment_archetype": "Investor (VC/PE)",
+        "geo_region": "India",
+        "firmographic_company_size": "11-50, 51-200",
+        "technographic_stack": ["Venture Capital Databases"],
+        "tribe": ["FoodTech Investing", "D2C Funding"]
+      },
+      "intent": {
+        "signals": [
+          "Announcements of new food sector funds or portfolio companies",
+          "Posts analyzing trends in 'clean label' or 'nutraceuticals'",
+          "Attending or speaking at startup/investor summits in India"
+        ],
+        "intent_tier": "Low"
+      },
+      "enrichment_fields": [
+        "contact_email",
+        "contact_phone",
+        "has_linkedin_messaging",
+        "primary_contact_channel",
+        "lead_type",
+        "geo_location",
+        "category_fit_score",
+        "category_fit_reason"
+      ],
+      "target": "investor",
+      "est_count": 20,
+      "doc_id": "1878390959",
+      "status": "idle",
+      "lastRunId": null
+    },
+    {
+      "name": "E-commerce & Quick Commerce Buyers",
+      "description": "Procurement or Category Managers for major Indian e-commerce platforms and quick commerce apps (e.g., Amazon India, BigBasket, Swiggy Instamart).",
+      "prompt": "Target individuals with job titles like 'Category Manager - Groceries', 'Senior Buyer - Packaged Foods', or 'Procurement Lead' working at major Indian e-commerce or Quick Commerce platforms (e.g., Amazon India, Flipkart, Grofers/Instamart, BigBasket). They must show recent activity or company association with online grocery sales, focusing on categories that include 'healthy snacks', 'pasta', or 'sauces'. This is for securing national online marketplace placement.",
+      "segment": {
+        "segment_archetype": "E-commerce Platform Buyer",
+        "geo_region": "India",
+        "firmographic_company_size": "1001+",
+        "technographic_stack": [
+          "Shopify Plus",
+          "Magento",
+          "Amazon Seller Central"
+        ],
+        "tribe": ["E-commerce Procurement", "Q-Commerce"]
+      },
+      "intent": {
+        "signals": [
+          "Discussions about onboarding new D2C brands",
+          "RFPs for specialty food categories",
+          "Mentions of driving growth in 'health and wellness' online sections"
+        ],
+        "intent_tier": "High"
+      },
+      "enrichment_fields": [
+        "contact_email",
+        "contact_phone",
+        "has_linkedin_messaging",
+        "primary_contact_channel",
+        "lead_type",
+        "geo_location",
+        "company_size_band",
+        "buying_intent_level",
+        "buying_intent_reason"
+      ],
+      "target": "platform",
+      "est_count": 15,
+      "doc_id": "9289533873",
+      "status": "idle",
+      "lastRunId": null
+    },
+    {
+      "name": "D2C Marketing Decision Makers",
+      "description": "CMOs, Marketing Heads, or Growth Leaders at other mission-aligned, health-focused D2C CPG brands.",
+      "prompt": "Identify Marketing Directors, CMOs, or Growth Heads at other Direct-to-Consumer (D2C) food, beverage, or wellness brands operating in India. These individuals should be actively posting about 'customer acquisition', 'D2C scaling', 'omnichannel strategy', or 'performance marketing' for their healthy product lines. The goal is to initiate co-marketing or strategic partnership discussions.",
+      "segment": {
+        "segment_archetype": "Other B2B (Strategic Partner)",
+        "geo_region": "India",
+        "firmographic_company_size": "11-200",
+        "technographic_stack": ["Klaviyo", "Shopify", "Meta Ads"],
+        "tribe": ["D2C Growth", "CPG Marketing"]
+      },
+      "intent": {
+        "signals": [
+          "Seeking marketing technology solutions",
+          "Expressing frustration with generic acquisition channels",
+          "Discussions around strategic collaborations or bundled offers"
+        ],
+        "intent_tier": "Medium"
+      },
+      "enrichment_fields": [
+        "contact_email",
+        "contact_phone",
+        "has_linkedin_messaging",
+        "primary_contact_channel",
+        "lead_type",
+        "geo_location",
+        "partnership_intent_level",
+        "partnership_intent_reason",
+        "audience_overlap_score"
+      ],
+      "target": "other_b2b",
+      "est_count": 50,
+      "doc_id": "5940591989",
+      "status": "idle",
+      "lastRunId": null
+    }
+  ]
+}
