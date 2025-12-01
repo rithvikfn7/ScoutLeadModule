@@ -79,7 +79,7 @@ jobs:
       - name: Trigger base repository deployment
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.FN7_PAT }}
+          github-token: ${{ secrets.FN7_PAT_trigger }}
           script: |
             const dockerfile = '${{ github.event.inputs.dockerfile }}' || 'frontend/Dockerfile';
             const buildContext = '${{ github.event.inputs.build_context }}' || 'frontend';
@@ -124,6 +124,7 @@ jobs:
                 inputs: inputs
               });
             } catch (error) {
+              console.log('⚠️ Error triggering workflow:', error);
               // Fallback to just filename
               console.log('⚠️  Trying with filename only...');
               response = await github.rest.actions.createWorkflowDispatch({
