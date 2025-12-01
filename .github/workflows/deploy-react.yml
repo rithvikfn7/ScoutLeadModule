@@ -2,6 +2,7 @@ name: Deploy React App
 
 # Deployment workflow for React frontend
 # This triggers the base repository (fn7io/fn7) deployment pipeline
+# Test trigger 1
 
 on:
   workflow_dispatch:
