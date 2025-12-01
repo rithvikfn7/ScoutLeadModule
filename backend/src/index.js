@@ -56,30 +56,102 @@ function increment(amount) {
 }
 
 const FIELD_DESCRIPTION_PREFIX = 'ScoutField::'
+
+/**
+ * ENRICHMENT_FIELDS
+ * 
+ * Each field defines:
+ * - label: Human-readable name shown in UI
+ * - format: Exa enrichment format ('text', 'email', 'phone', 'options')
+ * - instructions: Clear, structured prompt for Exa to extract this field
+ * - options (optional): For 'options' format, the allowed values
+ * - defaultCost: Token cost per lead for this enrichment
+ * 
+ * Prompt best practices used:
+ * - Be explicit about output format (e.g. "Return exactly one of...")
+ * - Provide examples where helpful
+ * - Keep instructions concise but unambiguous
+ * - Use consistent terminology
+ */
 const ENRICHMENT_FIELDS = {
-  buyingIntent: {
-    label: 'Buying Intent',
-    format: 'text',
-    instructions: 'Return exactly one of "High", "Medium", or "Low" buying intent based on the referenced post, followed by a brief (<=1 sentence) justification.',
-    defaultCost: 0.75,
-  },
-  employeeCount: {
-    label: 'Employee Count',
-    format: 'text',
-    instructions: 'Estimate the current team size or headcount range using any available public signals.',
-    defaultCost: 0.5,
+  // === CONTACT INFORMATION ===
+  email: {
+    label: 'Work Email',
+    format: 'email',
+    instructions: 'Find the best professional work email address for the primary contact or decision maker at this company. Return only the email address in lowercase (e.g. john.doe@company.com). If no email is found, return empty.',
+    defaultCost: 1.0,
   },
   phone: {
-    label: 'Phone',
+    label: 'Work Phone',
     format: 'phone',
-    instructions: 'Find the best work phone number for the primary contact or decision maker.',
+    instructions: 'Find the best work phone number for the primary contact or decision maker. Return in international format with country code (e.g. +1 555-123-4567 or +91 98765 43210). If no phone is found, return empty.',
     defaultCost: 1.0,
   },
-  email: {
-    label: 'Email',
-    format: 'email',
-    instructions: 'Find the best work email address for the primary contact or decision maker.',
-    defaultCost: 1.0,
+  linkedinUrl: {
+    label: 'LinkedIn URL',
+    format: 'url',
+    instructions: 'Find the LinkedIn profile URL for the primary contact or company. Return ONLY the LinkedIn URL (e.g. https://linkedin.com/company/acme or https://linkedin.com/in/johndoe). Must be a linkedin.com URL. If no LinkedIn profile is found, return empty.',
+    defaultCost: 0.5,
+  },
+  primaryContactChannel: {
+    label: 'Best Contact Channel',
+    format: 'text',
+    instructions: 'Identify the single best channel to reach this lead. Return exactly one of: "LinkedIn DM", "Work Email", "Phone", "Twitter DM", "Website Form", or "Unknown". Choose based on which channel appears most likely to get a response.',
+    defaultCost: 0.25,
+  },
+
+  // === LEAD CLASSIFICATION ===
+  leadType: {
+    label: 'Lead Type',
+    format: 'text',
+    instructions: 'Classify this lead into one category. Return exactly one of: "Retailer", "Distributor", "Influencer", "Creator", "Expert", "Consultant", "Investor", "Platform", "Brand", "Agency", or "Other". Use title case.',
+    defaultCost: 0.25,
+  },
+  geoLocation: {
+    label: 'Location',
+    format: 'text',
+    instructions: 'Return the most specific reliable location for this lead in "City, Country" format (e.g. "Mumbai, India", "San Francisco, USA"). If only country is known, return just the country. Use proper capitalization.',
+    defaultCost: 0.25,
+  },
+  employeeCount: {
+    label: 'Company Size',
+    format: 'text',
+    instructions: 'Estimate the company headcount range. Return exactly one of these ranges: "1-10", "11-50", "51-200", "201-500", "501-1000", "1001-5000", "5000+". Base estimate on any available signals (website, LinkedIn, news).',
+    defaultCost: 0.5,
+  },
+
+  // === INTENT SIGNALS ===
+  buyingIntent: {
+    label: 'Buying Intent',
+    format: 'options',
+    options: [{ label: 'High' }, { label: 'Medium' }, { label: 'Low' }],
+    instructions: 'Assess how likely this lead is to purchase products/services based on the referenced content. Return exactly "High", "Medium", or "Low". High = actively seeking solutions; Medium = exploring options; Low = no clear purchase signals.',
+    defaultCost: 0.75,
+  },
+  buyingIntentReason: {
+    label: 'Buying Intent Reason',
+    format: 'text',
+    instructions: 'Explain in one concise sentence (max 20 words) why you assigned the buying intent level. Focus on specific signals observed (e.g. "Mentioned budget approval for Q1 tool purchases").',
+    defaultCost: 0.25,
+  },
+  partnershipIntentLevel: {
+    label: 'Partnership Intent',
+    format: 'options',
+    options: [{ label: 'High' }, { label: 'Medium' }, { label: 'Low' }],
+    instructions: 'Assess how open this lead is to partnerships or collaborations. Return exactly "High", "Medium", or "Low". High = actively seeking partners; Medium = open to discussions; Low = no partnership signals.',
+    defaultCost: 0.25,
+  },
+  partnershipIntentReason: {
+    label: 'Partnership Intent Reason',
+    format: 'text',
+    instructions: 'Explain in one concise sentence (max 20 words) why you assigned the partnership intent level. Reference specific signals (e.g. "Posted about seeking distribution partners in India").',
+    defaultCost: 0.25,
+  },
+  audienceOverlapScore: {
+    label: 'Audience Overlap Score',
+    format: 'text',
+    instructions: 'Estimate the audience overlap potential on a scale of 1-10, where 10 means highly overlapping target audiences. Return just the number (e.g. "7") with optional one-sentence justification.',
+    defaultCost: 0.25,
   },
 }
 
@@ -91,19 +163,76 @@ Object.entries(ENRICHMENT_FIELDS).forEach(([key, value]) => {
 
 const DEFAULT_ENRICHMENT_FIELDS = ['email', 'phone']
 
-function normalizeRequestedFields(fieldsInput) {
-  if (!Array.isArray(fieldsInput) || fieldsInput.length === 0) {
-    return DEFAULT_ENRICHMENT_FIELDS
+const LEADSET_ENRICHMENT_FIELD_MAP = {
+  contact_email: 'email',
+  contact_phone: 'phone',
+  buying_intent_level: 'buyingIntent',
+  company_size_band: 'employeeCount',
+  has_linkedin_messaging: 'linkedinUrl',  // Now fetches actual LinkedIn URL
+  linkedin_url: 'linkedinUrl',
+  primary_contact_channel: 'primaryContactChannel',
+  lead_type: 'leadType',
+  geo_location: 'geoLocation',
+  buying_intent_reason: 'buyingIntentReason',
+  partnership_intent_level: 'partnershipIntentLevel',
+  partnership_intent_reason: 'partnershipIntentReason',
+  audience_overlap_score: 'audienceOverlapScore',
+}
+
+function getAllowedEnrichmentFieldsForLeadset(leadset = {}) {
+  const rawFields = Array.isArray(leadset.enrichment_fields)
+    ? leadset.enrichment_fields
+    : []
+
+  const mapped = new Set()
+  for (const raw of rawFields) {
+    const key = LEADSET_ENRICHMENT_FIELD_MAP[raw]
+    if (key && ENRICHMENT_FIELDS[key]) {
+      mapped.add(key)
+    }
   }
-  const unique = Array.from(
-    new Set(
-      fieldsInput
-        .map((field) => (typeof field === 'string' ? field.trim() : ''))
-        .filter(Boolean)
-    )
+
+  return Array.from(mapped)
+}
+
+function normalizeRequestedFields(fieldsInput, allowed = null) {
+  const hasExplicitRequest = Array.isArray(fieldsInput) && fieldsInput.length > 0
+
+  // When we have a per-leadset allowlist, prefer intersecting with it
+  const cleanedRequested = hasExplicitRequest
+    ? Array.from(
+        new Set(
+          fieldsInput
+            .map((field) => (typeof field === 'string' ? field.trim() : ''))
+            .filter(Boolean)
+        )
+      )
+    : []
+
+  let candidates = cleanedRequested
+  if (!hasExplicitRequest && Array.isArray(allowed) && allowed.length > 0) {
+    // No explicit selection → use allowed fields from leadset.enrichment_fields
+    candidates = allowed
+  }
+
+  const valid = candidates.filter(
+    (field) =>
+      Boolean(ENRICHMENT_FIELDS[field]) &&
+      (!Array.isArray(allowed) || allowed.length === 0 || allowed.includes(field))
   )
-  const valid = unique.filter((field) => Boolean(ENRICHMENT_FIELDS[field]))
-  return valid.length > 0 ? valid : DEFAULT_ENRICHMENT_FIELDS
+
+  if (valid.length > 0) {
+    return valid
+  }
+
+  // Fall back to default global fields, optionally intersected with allowed
+  if (Array.isArray(allowed) && allowed.length > 0) {
+    const intersectedDefault = DEFAULT_ENRICHMENT_FIELDS.filter((f) => allowed.includes(f))
+    if (intersectedDefault.length > 0) return intersectedDefault
+    return allowed
+  }
+
+  return DEFAULT_ENRICHMENT_FIELDS
 }
 
 function extractFieldFromEnrichment(enrichment = {}) {
@@ -154,8 +283,17 @@ function extractFieldFromEnrichment(enrichment = {}) {
     if (resultStr) {
       const lowerResult = resultStr.toLowerCase()
       
-      // Check for buying intent: starts with "High:", "Medium:", or "Low:"
-      if (/^(high|medium|low):/i.test(resultStr.trim())) {
+      // Check for High/Medium/Low patterns - could be buyingIntent or partnershipIntentLevel
+      // We need to use the enrichment's format to disambiguate when possible
+      if (/^(high|medium|low)(:|$)/i.test(resultStr.trim())) {
+        // If format is 'options', we can't easily tell which field it is from content alone
+        // Return null to let the caller use a different strategy (e.g., order-based matching)
+        // For now, check for partnership keywords in the result
+        if (lowerResult.includes('partnership') || lowerResult.includes('collaborat')) {
+          console.log(`[Enrich] Inferred field from result content: partnershipIntentLevel`)
+          return 'partnershipIntentLevel'
+        }
+        // Default to buyingIntent for High/Medium/Low without partnership context
         console.log(`[Enrich] Inferred field from result content: buyingIntent`)
         return 'buyingIntent'
       }
@@ -164,6 +302,20 @@ function extractFieldFromEnrichment(enrichment = {}) {
       if (/^\d+-\d+$/.test(resultStr.trim()) || /^\d+-\d+\+?$/.test(resultStr.trim())) {
         console.log(`[Enrich] Inferred field from result content: employeeCount`)
         return 'employeeCount'
+      }
+      
+      // Check for partnership intent reason: contains clear "partnership intent" phrasing or collaboration keywords
+      if (lowerResult.includes('partnership intent') || 
+          (lowerResult.includes('partnership') && (lowerResult.includes('shows') || lowerResult.includes('due to') || lowerResult.includes('because')))) {
+        console.log(`[Enrich] Inferred field from result content: partnershipIntentReason`)
+        return 'partnershipIntentReason'
+      }
+      
+      // Check for buying intent reason
+      if (lowerResult.includes('buying intent') || lowerResult.includes('purchase intent') ||
+          (lowerResult.includes('intent') && !lowerResult.includes('partnership') && (lowerResult.includes('shows') || lowerResult.includes('due to') || lowerResult.includes('because')))) {
+        console.log(`[Enrich] Inferred field from result content: buyingIntentReason`)
+        return 'buyingIntentReason'
       }
       
       // Check for email: contains @ symbol
@@ -176,6 +328,37 @@ function extractFieldFromEnrichment(enrichment = {}) {
       if (/^[\d\s\-\+\(\)]+$/.test(resultStr.trim()) && resultStr.replace(/\D/g, '').length >= 10) {
         console.log(`[Enrich] Inferred field from result content: phone`)
         return 'phone'
+      }
+      
+      // Check for LinkedIn URL patterns
+      if (lowerResult.includes('linkedin.com/') || lowerResult.includes('linkedin.com\\')) {
+        console.log(`[Enrich] Inferred field from result content: linkedinUrl`)
+        return 'linkedinUrl'
+      }
+      
+      // Check for location patterns (City, Country or State, Country)
+      if (/^[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*$/i.test(resultStr.trim())) {
+        console.log(`[Enrich] Inferred field from result content: geoLocation`)
+        return 'geoLocation'
+      }
+      
+      // Check for contact channel keywords
+      if (lowerResult.includes('linkedin dm') || lowerResult.includes('work email') || 
+          lowerResult.includes('website form') || lowerResult === 'phone' || lowerResult === 'email') {
+        console.log(`[Enrich] Inferred field from result content: primaryContactChannel`)
+        return 'primaryContactChannel'
+      }
+      
+      // Check for lead type keywords
+      if (/^(retailer|distributor|influencer|expert|investor|creator|consultant|brand|agency|platform)/i.test(resultStr.trim())) {
+        console.log(`[Enrich] Inferred field from result content: leadType`)
+        return 'leadType'
+      }
+      
+      // Check for audience overlap score (1-10 number pattern)
+      if (/^[1-9]|10\b/.test(resultStr.trim()) && (lowerResult.includes('overlap') || lowerResult.includes('audience') || /^[1-9]$|^10$/.test(resultStr.trim()))) {
+        console.log(`[Enrich] Inferred field from result content: audienceOverlapScore`)
+        return 'audienceOverlapScore'
       }
     }
   }
@@ -246,7 +429,12 @@ function normalizeEmployeeCount(value) {
 
 function extractEnrichmentValue(enrichment, fieldKey = null) {
   if (!enrichment) return null
-  const { result } = enrichment
+  const { result, status } = enrichment
+  
+  // Check if Exa returned "not found" or failed status
+  if (status === 'failed' || status === 'not_found') {
+    return 'Not found'
+  }
   
   // Extract raw value
   let rawValue = null
@@ -266,7 +454,24 @@ function extractEnrichmentValue(enrichment, fieldKey = null) {
     rawValue = JSON.stringify(result)
   }
   
-  if (!rawValue) return null
+  // If no result found, return "Not found"
+  if (!rawValue || rawValue.trim() === '') {
+    return 'Not found'
+  }
+  
+  // Check for common "not found" patterns in the result
+  const lowerValue = rawValue.toLowerCase().trim()
+  if (lowerValue === 'not found' || 
+      lowerValue === 'n/a' || 
+      lowerValue === 'none' || 
+      lowerValue === 'unavailable' ||
+      lowerValue === 'no data' ||
+      lowerValue === 'unknown' ||
+      lowerValue.startsWith('could not find') ||
+      lowerValue.startsWith('unable to find') ||
+      lowerValue.startsWith('no ') && lowerValue.includes('found')) {
+    return 'Not found'
+  }
   
   // Normalize based on field type
   if (fieldKey === 'buyingIntent') {
@@ -349,6 +554,10 @@ async function rebuildLeadsetFeed(preloadedDocs = null) {
         items: items.length,
       },
     }
+
+    // Log leadset statuses for debugging
+    const statusSummary = leadsets.map(ls => `${ls.id?.slice(-6)}:${ls.status || 'unknown'}`).join(', ')
+    console.log(`[Leadset Feed] Rebuilding with statuses: ${statusSummary}`)
 
     try {
       await sdk.updateFirebaseData('leadsetFeed', 'global', feedPayload)
@@ -772,8 +981,8 @@ async function getImportStatus(importId) {
  * 
  * Enrichments extract additional data from items (email, phone, etc.)
  */
-async function createEnrichment(websetId, options = {}) {
-  const { description, format = 'email', metadata } = options
+async function createEnrichment(websetId, enrichmentOptions = {}) {
+  const { description, format = 'text', metadata, options: fieldOptions } = enrichmentOptions
 
   if (!EXA_API_KEY) {
     return {
@@ -786,16 +995,23 @@ async function createEnrichment(websetId, options = {}) {
     }
   }
 
-  // Create email enrichment
+  // Build enrichment payload
   const payload = {
-    description: description || 'Find the work email address for the main contact at this company',
+    description: description || 'Extract information for this lead',
     format,
   }
+  
+  // Add metadata for field identification
   if (metadata && typeof metadata === 'object') {
     payload.metadata = metadata
   }
+  
+  // Add options array for 'options' format (High/Medium/Low choices etc.)
+  if (format === 'options' && Array.isArray(fieldOptions) && fieldOptions.length > 0) {
+    payload.options = fieldOptions
+  }
 
-  console.log('[Exa] Creating enrichment for webset:', websetId, payload)
+  console.log('[Exa] Creating enrichment for webset:', websetId, JSON.stringify(payload, null, 2))
 
   const response = await fetch(`${EXA_API_BASE}/websets/v0/websets/${websetId}/enrichments`, {
     method: 'POST',
@@ -1950,13 +2166,19 @@ app.post('/leadsets/:leadsetId/runs/:runId/enrich', async (req, res, next) => {
   const { leadsetId, runId } = req.params
   const { fields: requestedFieldsInput = [] } = req.body || {}
 
-  const requestedFields = normalizeRequestedFields(requestedFieldsInput)
-  const invalidFields = requestedFields.filter((field) => !ENRICHMENT_FIELDS[field])
-  if (invalidFields.length > 0) {
-    return res.status(400).json({ error: 'Invalid fields requested', invalidFields })
-  }
-
   try {
+    const leadset = await sdk.getFirebaseData('leadsets', leadsetId)
+    if (!leadset) {
+      return res.status(404).json({ error: 'Leadset not found' })
+    }
+
+    const allowedFromLeadset = getAllowedEnrichmentFieldsForLeadset(leadset)
+    const requestedFields = normalizeRequestedFields(requestedFieldsInput, allowedFromLeadset)
+    const invalidFields = requestedFields.filter((field) => !ENRICHMENT_FIELDS[field])
+    if (invalidFields.length > 0) {
+      return res.status(400).json({ error: 'Invalid fields requested', invalidFields })
+    }
+
     const run = await sdk.getFirebaseData('runs', runId)
     if (!run) {
       return res.status(404).json({ error: 'Run not found' })
@@ -1990,11 +2212,19 @@ app.post('/leadsets/:leadsetId/runs/:runId/enrich', async (req, res, next) => {
         metadata: { field: fieldKey },
       })
       
-      const enrichment = await createEnrichment(run.websetId, {
+      // Build enrichment request with proper format
+      const enrichmentPayload = {
         description: definition.description,
-        format: definition.format,
+        format: definition.format === 'options' ? 'options' : definition.format,
         metadata: { field: fieldKey },
-      })
+      }
+      
+      // Add options array for 'options' format fields
+      if (definition.format === 'options' && definition.options) {
+        enrichmentPayload.options = definition.options
+      }
+      
+      const enrichment = await createEnrichment(run.websetId, enrichmentPayload)
       
       console.log(`[Enrich] Created enrichment for ${fieldKey}:`, enrichment.id)
       
@@ -2051,21 +2281,27 @@ app.post('/leadsets/:leadsetId/runs/:runId/enrich', async (req, res, next) => {
       })
     )
 
-    await sdk.updateFirebaseData('runs', runId, {
-      status: 'enriching',
-      counters: {
-        ...run.counters,
-      },
-    })
+    // Update both run AND leadset status to 'enriching'
+    await Promise.all([
+      sdk.updateFirebaseData('runs', runId, {
+        status: 'enriching',
+        counters: {
+          ...run.counters,
+        },
+      }),
+      sdk.updateFirebaseData('leadsets', leadsetId, {
+        status: 'enriching',
+      }),
+    ])
 
     // Give Firebase a moment to propagate item updates
     await new Promise(resolve => setTimeout(resolve, 300))
     
     // Re-fetch items to get the updated enrichment status before rebuilding feed
     const allDocsAfterEnrichStart = toArray(await sdk.searchFirebaseData({}, 10000))
-    await updateDocStatus(['runs', 'items', 'enrichments'], { leadsetId, runId })
+    await updateDocStatus(['runs', 'items', 'enrichments', 'leadsets'], { leadsetId, runId })
     await rebuildLeadsetFeed(allDocsAfterEnrichStart).catch((err) => console.warn('[Leadset Feed] Enrich rebuild skipped:', err.message))
-    console.log(`[Enrich] Rebuilt feed after setting items to 'enriching' status`)
+    console.log(`[Enrich] Rebuilt feed after setting items and leadset to 'enriching' status`)
 
     console.log(`[Enrich] Started enrichment ${enrichmentId} for entire webset (${allItems.length} items, fields: ${requestedFields.join(', ')})`)
     res.status(202).json({
@@ -2253,6 +2489,7 @@ app.get('/leadsets/:leadsetId/runs/:runId/enrichment/:enrichmentId', async (req,
       for (const exaItem of exaItems) {
         const enrichmentsArray = exaItem.enrichments || []
         const fieldUpdates = {}
+        const matchedFields = new Set() // Track which fields we've already matched
         let linkedinUrl = null
 
         if (!enrichmentsArray || enrichmentsArray.length === 0) {
@@ -2261,9 +2498,15 @@ app.get('/leadsets/:leadsetId/runs/:runId/enrichment/:enrichmentId', async (req,
         }
 
         for (const enrichment of enrichmentsArray) {
-          if (enrichment.format === 'linkedin' && enrichment.result && enrichment.result.length > 0) {
-            linkedinUrl = enrichment.result[0]
-            continue
+          // Check for LinkedIn URL - either by metadata.field or by detecting linkedin.com in URL result
+          const isLinkedInField = enrichment.metadata?.field === 'linkedinUrl'
+          if ((enrichment.format === 'url' || isLinkedInField) && enrichment.result && enrichment.result.length > 0) {
+            const urlResult = enrichment.result[0]
+            if (urlResult && (isLinkedInField || urlResult.toLowerCase().includes('linkedin.com'))) {
+              linkedinUrl = urlResult
+              matchedFields.add('linkedinUrl')
+              continue
+            }
           }
 
           // Log enrichment details for debugging
@@ -2277,7 +2520,26 @@ app.get('/leadsets/:leadsetId/runs/:runId/enrichment/:enrichmentId', async (req,
             resultLength: Array.isArray(enrichment.result) ? enrichment.result.length : 'N/A',
           })
 
-          const fieldKey = extractFieldFromEnrichment(enrichment)
+          let fieldKey = extractFieldFromEnrichment(enrichment)
+          
+          // If we already matched this field, try to find an alternative
+          // This handles cases where inference can't distinguish between buyingIntent and partnershipIntentLevel
+          if (fieldKey && matchedFields.has(fieldKey)) {
+            console.log(`[Enrich] Field ${fieldKey} already matched, looking for alternative...`)
+            
+            // For High/Medium/Low values, try the other intent field
+            if (fieldKey === 'buyingIntent' && requestedFieldSet.has('partnershipIntentLevel') && !matchedFields.has('partnershipIntentLevel')) {
+              fieldKey = 'partnershipIntentLevel'
+              console.log(`[Enrich] Reassigned to partnershipIntentLevel`)
+            } else if (fieldKey === 'partnershipIntentLevel' && requestedFieldSet.has('buyingIntent') && !matchedFields.has('buyingIntent')) {
+              fieldKey = 'buyingIntent'
+              console.log(`[Enrich] Reassigned to buyingIntent`)
+            } else {
+              console.log(`[Enrich] No alternative found, skipping duplicate`)
+              continue
+            }
+          }
+          
           if (!fieldKey) {
             console.warn(`[Enrich] Could not extract field key from enrichment. Enrichment details:`, {
               id: enrichment.id,
@@ -2304,17 +2566,9 @@ app.get('/leadsets/:leadsetId/runs/:runId/enrichment/:enrichmentId', async (req,
           
           console.log(`[Enrich] Extracted value for ${fieldKey}:`, value.substring ? value.substring(0, 100) : value)
 
-          if (fieldKey === 'email') {
-            fieldUpdates.email = value
-          } else if (fieldKey === 'phone') {
-            fieldUpdates.phone = value
-          } else if (fieldKey === 'buyingIntent') {
-            fieldUpdates.buyingIntent = value
-          } else if (fieldKey === 'description') {
-            fieldUpdates.description = value
-          } else if (fieldKey === 'employeeCount') {
-            fieldUpdates.employeeCount = value
-          }
+          // Dynamically set any valid enrichment field
+          fieldUpdates[fieldKey] = value
+          matchedFields.add(fieldKey)
         }
 
         if (linkedinUrl) {
@@ -2456,12 +2710,18 @@ app.get('/leadsets/:leadsetId/runs/:runId/enrichment/:enrichmentId', async (req,
         await sdk.updateFirebaseData('leadsets', leadsetId, { status: 'idle' })
         console.log(`[Enrich] Updated leadset ${leadsetId} status to 'idle' in Firebase`)
         
-        // Give Firebase a moment to propagate all item updates before rebuilding feed
+        // Give Firebase a moment to propagate all updates (leadset status + item updates)
         await new Promise(resolve => setTimeout(resolve, 500))
         
-        // Re-fetch all items to ensure we have the latest enrichment data
-        console.log(`[Enrich] Re-fetching all items to include latest enrichment data...`)
+        // Re-fetch ALL data fresh to ensure we have the latest leadset status and enrichment data
+        // Do NOT use preloaded docs here as the leadset status was just updated
+        console.log(`[Enrich] Re-fetching all data to include latest leadset status and enrichment data...`)
         const allDocsAfterEnrich = toArray(await sdk.searchFirebaseData({}, 10000))
+        
+        // Verify leadset status in fetched data
+        const updatedLeadset = allDocsAfterEnrich.find(doc => doc.doc_type === 'leadsets' && doc.id === leadsetId)
+        console.log(`[Enrich] Verified leadset ${leadsetId} status in fetched data: ${updatedLeadset?.status}`)
+        
         const updatedItems = allDocsAfterEnrich.filter(doc => 
           doc.doc_type === 'items' && doc.runId === runId && doc.leadsetId === leadsetId
         )
@@ -2472,20 +2732,15 @@ app.get('/leadsets/:leadsetId/runs/:runId/enrichment/:enrichmentId', async (req,
           const sampleItem = updatedItems[0]
           const sampleEnrichment = sampleItem.enrichment || {}
           console.log(`[Enrich] Sample item enrichment fields:`, Object.keys(sampleEnrichment))
-          if (sampleEnrichment.buyingIntent) {
-            console.log(`[Enrich] ✓ buyingIntent present: ${sampleEnrichment.buyingIntent.substring(0, 50)}...`)
-          }
-          if (sampleEnrichment.employeeCount) {
-            console.log(`[Enrich] ✓ employeeCount present: ${sampleEnrichment.employeeCount}`)
-          }
         }
         
+        // Rebuild feed with freshly fetched docs (includes updated leadset status)
+        await rebuildLeadsetFeed(allDocsAfterEnrich).catch((err) => console.warn('[Leadset Feed] Enrichment status rebuild skipped:', err.message))
+        console.log(`[Enrich] Rebuilt leadset feed with updated leadset status and items`)
+        
+        // Trigger docStatus update AFTER feed is rebuilt so frontend gets the new feed
         await updateDocStatus(['runs', 'items', 'enrichments', 'leadsets'], { leadsetId, runId })
         console.log(`[Enrich] Triggered docStatus update for frontend refresh`)
-        
-        // Rebuild feed with preloaded docs to ensure latest data
-        await rebuildLeadsetFeed(allDocsAfterEnrich).catch((err) => console.warn('[Leadset Feed] Enrichment status rebuild skipped:', err.message))
-        console.log(`[Enrich] Rebuilt leadset feed with updated items`)
         
         console.log(`[Enrich] Successfully completed enrichment ${enrichmentId} - all Firebase updates complete`)
       } catch (err) {
@@ -2664,8 +2919,12 @@ app.post('/webhooks/exa', async (req, res, next) => {
           if (enrichment.format === 'phone' && enrichment.result && enrichment.result.length > 0) {
             phone = enrichment.result[0]
           }
-          if (enrichment.format === 'linkedin' && enrichment.result && enrichment.result.length > 0) {
-            linkedinUrl = enrichment.result[0]
+          // Check for LinkedIn URL (uses 'url' format)
+          if (enrichment.format === 'url' && enrichment.result && enrichment.result.length > 0) {
+            const urlResult = enrichment.result[0]
+            if (urlResult && urlResult.toLowerCase().includes('linkedin.com')) {
+              linkedinUrl = urlResult
+            }
           }
         }
         

@@ -37,34 +37,166 @@ const DEFAULT_FILTERS = {
 
 const SNIPPET_PREVIEW_LENGTH = 200
 
-const FIELD_OPTIONS = [
+// Helper function to highlight important words in snippet
+const highlightSnippet = (text) => {
+  if (!text) return text
+
+  // Words to highlight: capitalized words, quoted text, numbers with units
+  const parts = []
+  const regex = /(".*?"|\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b|\b\d+%|\$\d+(?:,\d{3})*(?:\.\d+)?[KMB]?|\b\d+[+]?\b)/g
+
+  let lastIndex = 0
+  let match
+
+  while ((match = regex.exec(text)) !== null) {
+    // Add text before match
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index))
+    }
+
+    // Add highlighted match
+    parts.push(
+      <span
+        key={match.index}
+        style={{
+          fontWeight: 600,
+          color: '#000000'
+        }}
+      >
+        {match[0]}
+      </span>
+    )
+
+    lastIndex = regex.lastIndex
+  }
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : text
+}
+
+/**
+ * BASE_FIELD_OPTIONS
+ * 
+ * All supported enrichment fields with UI metadata.
+ * These are filtered per-leadset based on enrichment_fields from Firebase.
+ * 
+ * Categories:
+ * - Contact: email, phone, hasLinkedinMessaging, primaryContactChannel
+ * - Classification: leadType, geoLocation, employeeCount
+ * - Intent: buyingIntent, buyingIntentReason, partnershipIntentLevel, partnershipIntentReason
+ */
+const BASE_FIELD_OPTIONS = [
+  // === CONTACT INFORMATION ===
   {
-    key: 'buyingIntent',
-    label: 'Buying Intent',
-    description: 'Classify the lead\'s intent as High / Medium / Low with a short reason.',
-    defaultCost: 0.75,
-  },
-  {
-    key: 'employeeCount',
-    label: 'Employee Count',
-    description: 'Estimated headcount or team size so you can gauge scale.',
-    defaultCost: 0.5,
+    key: 'email',
+    label: 'Work Email',
+    description: 'Professional email address for the primary contact or decision maker.',
+    defaultCost: 1.0,
+    category: 'contact',
   },
   {
     key: 'phone',
-    label: 'Phone',
-    description: 'Best available work phone number.',
+    label: 'Work Phone',
+    description: 'Direct phone number in international format.',
     defaultCost: 1.0,
+    category: 'contact',
   },
   {
-    key: 'email',
-    label: 'Email',
-    description: 'Best available work email address.',
-    defaultCost: 1.0,
+    key: 'linkedinUrl',
+    label: 'LinkedIn URL',
+    description: 'Direct LinkedIn profile URL for the contact or company.',
+    defaultCost: 0.5,
+    category: 'contact',
+  },
+  {
+    key: 'primaryContactChannel',
+    label: 'Best Contact Channel',
+    description: 'The most effective channel to reach this lead (LinkedIn, Email, Phone, etc.).',
+    defaultCost: 0.25,
+    category: 'contact',
+  },
+
+  // === LEAD CLASSIFICATION ===
+  {
+    key: 'leadType',
+    label: 'Lead Type',
+    description: 'Classification: Retailer, Distributor, Influencer, Expert, Investor, etc.',
+    defaultCost: 0.25,
+    category: 'classification',
+  },
+  {
+    key: 'geoLocation',
+    label: 'Location',
+    description: 'City and country (e.g. "Mumbai, India").',
+    defaultCost: 0.25,
+    category: 'classification',
+  },
+  {
+    key: 'employeeCount',
+    label: 'Company Size',
+    description: 'Estimated headcount range (e.g. "51-200").',
+    defaultCost: 0.5,
+    category: 'classification',
+  },
+
+  // === INTENT SIGNALS ===
+  {
+    key: 'buyingIntent',
+    label: 'Buying Intent',
+    description: 'High / Medium / Low likelihood to purchase.',
+    defaultCost: 0.75,
+    category: 'intent',
+  },
+  {
+    key: 'buyingIntentReason',
+    label: 'Buying Intent Reason',
+    description: 'Brief explanation for the buying intent assessment.',
+    defaultCost: 0.25,
+    category: 'intent',
+  },
+  {
+    key: 'partnershipIntentLevel',
+    label: 'Partnership Intent',
+    description: 'High / Medium / Low openness to partnerships.',
+    defaultCost: 0.25,
+    category: 'intent',
+  },
+  {
+    key: 'partnershipIntentReason',
+    label: 'Partnership Intent Reason',
+    description: 'Brief explanation for the partnership intent assessment.',
+    defaultCost: 0.25,
+    category: 'intent',
+  },
+  {
+    key: 'audienceOverlapScore',
+    label: 'Audience Overlap',
+    description: 'Score 1-10 indicating target audience overlap potential.',
+    defaultCost: 0.25,
+    category: 'intent',
   },
 ]
 
-const INSIGHT_FIELDS = FIELD_OPTIONS.filter((option) => !['phone', 'email'].includes(option.key))
+// Map backend/brain enrichment field names -> UI/internal keys
+const LEADSET_ENRICHMENT_FIELD_MAP = {
+  contact_email: 'email',
+  contact_phone: 'phone',
+  buying_intent_level: 'buyingIntent',
+  company_size_band: 'employeeCount',
+  has_linkedin_messaging: 'linkedinUrl',  // Now fetches actual LinkedIn URL
+  linkedin_url: 'linkedinUrl',
+  primary_contact_channel: 'primaryContactChannel',
+  lead_type: 'leadType',
+  geo_location: 'geoLocation',
+  buying_intent_reason: 'buyingIntentReason',
+  partnership_intent_level: 'partnershipIntentLevel',
+  partnership_intent_reason: 'partnershipIntentReason',
+  audience_overlap_score: 'audienceOverlapScore',
+}
 
 const getItemId = (item) => item.itemId || item.id
 
@@ -87,12 +219,42 @@ function formatInsightValue(value, maxLength = 180) {
   return value
 }
 
+function capitalizeFirst(value) {
+  if (!value || typeof value !== 'string') return value
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
+
+/**
+ * Determine if a leadset is a "Buyer" type or "Partner" type
+ * Buyer types: retailer, distributor, platform, investor
+ * Partner types: other_b2b, influencer, expert, creator
+ */
+const BUYER_TARGETS = ['retailer', 'distributor', 'platform', 'investor']
+const PARTNER_TARGETS = ['other_b2b', 'influencer', 'expert', 'creator']
+
+function getLeadsetType(leadset) {
+  const target = (leadset?.target || '').toLowerCase()
+  if (BUYER_TARGETS.includes(target)) return 'buyer'
+  if (PARTNER_TARGETS.includes(target)) return 'partner'
+  // Check enrichment_fields as fallback
+  const fields = leadset?.enrichment_fields || []
+  const hasBuyingIntent = fields.includes('buying_intent_level')
+  const hasPartnershipIntent = fields.includes('partnership_intent_level')
+  if (hasBuyingIntent && !hasPartnershipIntent) return 'buyer'
+  if (hasPartnershipIntent && !hasBuyingIntent) return 'partner'
+  // Default: if has both or neither, return 'mixed'
+  return 'mixed'
+}
+
 const hasContactInfo = (item = {}) => {
   const enrichment = item.enrichment || {}
+  const hasValidEmail = enrichment.email && enrichment.email !== 'Not found'
+  const hasValidPhone = enrichment.phone && enrichment.phone !== 'Not found'
+  const hasValidLinkedin = enrichment.linkedinUrl && enrichment.linkedinUrl !== 'Not found' && enrichment.linkedinUrl.trim()
   return (
-    fieldValueExists(enrichment, 'email') ||
-    fieldValueExists(enrichment, 'phone') ||
-    (enrichment.linkedinUrl && enrichment.linkedinUrl.trim())
+    hasValidEmail ||
+    hasValidPhone ||
+    hasValidLinkedin
   )
 }
 
@@ -119,12 +281,12 @@ export default function LeadsetDetail() {
   const navigate = useNavigate()
   
   // Get data from cache (reads from Firebase via FN7 SDK)
-  const { leadset, run, items, settings, isLoading, error, isInitialized, refreshLeadset } = useLeadsetCache(leadsetId)
+  const { leadset, run, items, settings, isLoading, error, isInitialized, refreshLeadset, refreshCounter } = useLeadsetCache(leadsetId)
   
   // Local UI state
   const [websetItems, setWebsetItems] = useState([]) // Items from Exa webset polling
   const [activeFilters, setActiveFilters] = useState(DEFAULT_FILTERS)
-  const [selectedFields, setSelectedFields] = useState(() => new Set(FIELD_OPTIONS.map((opt) => opt.key)))
+  const [selectedFields, setSelectedFields] = useState(() => new Set())
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
   const [isExtendModalOpen, setIsExtendModalOpen] = useState(false)
   const [existingItemCount, setExistingItemCount] = useState(0)
@@ -137,16 +299,45 @@ export default function LeadsetDetail() {
   const [currentPage, setCurrentPage] = useState(1)
   const [recentlyEnrichedIds, setRecentlyEnrichedIds] = useState(() => new Set())
   const [expandedSnippets, setExpandedSnippets] = useState(() => new Set())
+  const [hoveredSnippet, setHoveredSnippet] = useState(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   
   const PAGE_SIZE = 10
   const toastTimeoutRef = useRef(null)
   const websetPollIntervalRef = useRef(null)
+  const enrichmentPollIntervalRef = useRef(null)
   const recentHighlightTimeoutRef = useRef(null)
   const lastPolledRunIdRef = useRef(null)
+  const activeEnrichmentIdRef = useRef(null)
 
   const showLoading = isLoading || !isInitialized || isRequestingRun
   
+  // Derive which enrichment fields are allowed for this leadset (from leadset.enrichment_fields)
+  const allowedFieldKeys = useMemo(() => {
+    const rawFields = Array.isArray(leadset?.enrichment_fields)
+      ? leadset.enrichment_fields
+      : []
+
+    const mapped = new Set()
+    rawFields.forEach((raw) => {
+      const key = LEADSET_ENRICHMENT_FIELD_MAP[raw]
+      if (key) {
+        mapped.add(key)
+      }
+    })
+
+    // If none specified on leadset, allow all base options
+    if (mapped.size === 0) {
+      BASE_FIELD_OPTIONS.forEach((opt) => mapped.add(opt.key))
+    }
+
+    return Array.from(mapped)
+  }, [leadset])
+
+  const FIELD_OPTIONS = useMemo(() => {
+    return BASE_FIELD_OPTIONS.filter((opt) => allowedFieldKeys.includes(opt.key))
+  }, [allowedFieldKeys])
+
   // Check if a run is currently active (for showing table loading indicator)
   const derivedWebsetStatus = websetData?.status?.toLowerCase() || ''
   const isRunActive = ['running', 'processing', 'pending'].includes(derivedWebsetStatus)
@@ -175,6 +366,8 @@ export default function LeadsetDetail() {
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
       if (recentHighlightTimeoutRef.current) clearTimeout(recentHighlightTimeoutRef.current)
       if (websetPollIntervalRef.current) clearInterval(websetPollIntervalRef.current)
+      if (enrichmentPollIntervalRef.current) clearInterval(enrichmentPollIntervalRef.current)
+      activeEnrichmentIdRef.current = null
     }
   }, [])
 
@@ -186,10 +379,11 @@ export default function LeadsetDetail() {
     }
   }, [isRequestingRun, run?.id])
 
-  // Process items from cache
+  // Process items from cache - depends on refreshCounter to force re-computation
   const finalItems = useMemo(() => {
+    console.log('[LeadsetDetail] Recomputing finalItems, refreshCounter:', refreshCounter, 'items:', items?.length)
     return Array.isArray(items) ? items.map(item => ({ ...item, __source: 'firebase' })) : []
-  }, [items])
+  }, [items, refreshCounter])
 
   // Start polling for webset status
   const startWebsetPolling = useCallback((runId) => {
@@ -394,6 +588,12 @@ export default function LeadsetDetail() {
   const handleUnlock = async () => {
     if (!leadsetId || !run?.id) return
 
+    // Prevent duplicate operations
+    if (activeEnrichmentIdRef.current) {
+      showToast('An enrichment is already in progress. Please wait.', 'info')
+      return
+    }
+
     const selectedFieldList = Array.from(selectedFields)
     if (!selectedFieldList.length) {
       showToast('Select at least one data type to unlock.', 'error')
@@ -401,50 +601,73 @@ export default function LeadsetDetail() {
     }
 
     setIsEnrichmentRequesting(true)
+    // Close modal immediately after starting request
+    setIsDetailsModalOpen(false)
+    showToast('Enrichment started. Processing leads...', 'info')
 
     try {
       const result = await requestEnrichment(leadsetId, run.id, selectedFieldList)
       const enrichmentId = result.enrichmentId
-      setIsDetailsModalOpen(false)
 
       if (enrichmentId) {
+        activeEnrichmentIdRef.current = enrichmentId
         let pollCount = 0
         const maxPolls = 100
 
-        const pollInterval = setInterval(async () => {
+        // Clear any existing poll interval
+        if (enrichmentPollIntervalRef.current) {
+          clearInterval(enrichmentPollIntervalRef.current)
+        }
+
+        enrichmentPollIntervalRef.current = setInterval(async () => {
           pollCount++
           try {
             const enrichmentStatus = await getEnrichmentStatus(leadsetId, run.id, enrichmentId)
             const status = enrichmentStatus.status
 
             if (['completed', 'done'].includes(status)) {
-              clearInterval(pollInterval)
+              clearInterval(enrichmentPollIntervalRef.current)
+              enrichmentPollIntervalRef.current = null
+              activeEnrichmentIdRef.current = null
               setIsEnrichmentRequesting(false)
+              showToast('Enrichment complete! Data updated.', 'success')
+              // Force refresh to get latest data
               refreshLeadset()
               if (recentHighlightTimeoutRef.current) clearTimeout(recentHighlightTimeoutRef.current)
-              showToast('Enrichment completed for all leads in this webset', 'success')
             } else if (status === 'failed') {
-              clearInterval(pollInterval)
+              clearInterval(enrichmentPollIntervalRef.current)
+              enrichmentPollIntervalRef.current = null
+              activeEnrichmentIdRef.current = null
               setIsEnrichmentRequesting(false)
               showToast('Enrichment failed. Please try again.', 'error')
             } else if (pollCount >= maxPolls) {
-              clearInterval(pollInterval)
+              clearInterval(enrichmentPollIntervalRef.current)
+              enrichmentPollIntervalRef.current = null
+              activeEnrichmentIdRef.current = null
               setIsEnrichmentRequesting(false)
               showToast('Enrichment is taking longer than expected. Please refresh.', 'info')
+            } else {
+              // Refresh data periodically during enrichment to show progress
+              if (pollCount % 2 === 0) {
+                refreshLeadset()
+              }
             }
           } catch (pollError) {
             console.error('Polling error:', pollError)
             if (pollCount >= maxPolls) {
-              clearInterval(pollInterval)
+              clearInterval(enrichmentPollIntervalRef.current)
+              enrichmentPollIntervalRef.current = null
+              activeEnrichmentIdRef.current = null
               setIsEnrichmentRequesting(false)
             }
           }
-        }, 3000)
+        }, 2500) // Poll every 2.5 seconds for faster updates
       } else {
         setIsEnrichmentRequesting(false)
       }
     } catch (err) {
       console.error(err)
+      activeEnrichmentIdRef.current = null
       setIsEnrichmentRequesting(false)
       showToast(err.response?.data?.message || err.message || 'Unable to request enrichment', 'error')
     }
@@ -608,11 +831,14 @@ export default function LeadsetDetail() {
             <table>
               <thead>
                 <tr>
-                  <th>Company</th>
-                  <th>Signal snippet</th>
-                  <th>Buyer context</th>
+                  <th style={{ paddingRight: '4px' }}>Leads</th>
+                  <th style={{ paddingLeft: '0px', transform: 'translateX(5px)', width: '300px', maxWidth: '300px' }}>About leads</th>
+                  <th style={{ transform: 'translateX(10px)' }}>Intent</th>
+                  <th style={{ transform: 'translateX(-20px)' }}>Employee Count</th>
+                  <th>Lead type & geo</th>
                   <th>Score</th>
-                  <th>Contact & channels</th>
+                  <th style={{ transform: 'translateX(20px)' }}>Contact & channels</th>
+                  <th>Intent & partnership notes</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -643,31 +869,6 @@ export default function LeadsetDetail() {
               {isRequestingRun ? 'Starting…' : 'Run leadset'}
             </button>
           )}
-          {showExtendButton && !disableExtend && (
-            <button
-              type="button"
-              onClick={openExtendModal}
-              style={{
-                padding: '8px 16px',
-                fontSize: '14px',
-                fontWeight: 600,
-                borderRadius: '8px',
-                border: '1px solid transparent',
-                backgroundImage: 'linear-gradient(white, white), linear-gradient(to right, #FF6C57, #B56AF1)',
-                backgroundOrigin: 'border-box',
-                backgroundClip: 'padding-box, border-box',
-                color: '#000000',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              <span className="material-icons" style={{ fontSize: '18px' }}>add_circle</span>
-              Add leads
-            </button>
-          )}
           {['running', 'processing', 'pending'].includes(derivedWebsetStatus) && (
             <button
               type="button"
@@ -694,28 +895,6 @@ export default function LeadsetDetail() {
               {isCancelingRun ? 'Canceling…' : run?.mode === 'extend' ? 'Cancel leads' : 'Cancel run'}
             </button>
           )}
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={!run?.id || isExporting || !latestStats.found}
-            style={{
-              padding: '8px 16px',
-              fontSize: '14px',
-              fontWeight: 600,
-              borderRadius: '8px',
-              border: 'none',
-              background: '#000000',
-              color: '#ffffff',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <span className="material-icons" style={{ fontSize: '18px' }}>download</span>
-            {isExporting ? 'Preparing…' : 'Download CSV'}
-          </button>
         </div>
       </div>
 
@@ -740,7 +919,7 @@ export default function LeadsetDetail() {
       )}
 
       {isEnrichmentRequesting && (
-        <div className="status-pill" style={{ marginBottom: '12px', backgroundColor: '#2196f3', color: 'white', padding: '12px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="status-pill" style={{ marginBottom: '12px', background: 'linear-gradient(to right, rgba(255, 108, 87, 0.1), rgba(181, 106, 241, 0.1))', color: '#000000', padding: '12px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span className="material-icons" style={{ animation: 'spin 1s linear infinite' }}>sync</span>
           <span>Enriching contact details... This may take a few moments.</span>
         </div>
@@ -765,8 +944,30 @@ export default function LeadsetDetail() {
         </div>
       )}
 
-      <div style={{ marginBottom: '0px' }}>
+      <div style={{ marginBottom: '0px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 className="detail-title">{leadset.name}</h2>
+        <button
+          type="button"
+          onClick={handleDownload}
+          disabled={!run?.id || isExporting || !latestStats.found}
+          style={{
+            padding: '8px 16px',
+            fontSize: '14px',
+            fontWeight: 600,
+            borderRadius: '8px',
+            border: 'none',
+            background: '#000000',
+            color: '#ffffff',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <span className="material-icons" style={{ fontSize: '18px' }}>download</span>
+          {isExporting ? 'Preparing…' : 'Download CSV'}
+        </button>
       </div>
 
       <section className="filter-bar" style={{ marginTop: '-8px' }}>
@@ -812,73 +1013,113 @@ export default function LeadsetDetail() {
 
       <section className="table-shell">
         <div className="selection-toolbar">
-          <span className="toolbar-label">
-            {filteredItems.length} lead{filteredItems.length !== 1 ? 's' : ''}
+          <span className="toolbar-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>{filteredItems.length} lead{filteredItems.length !== 1 ? 's' : ''}</span>
             {isRunActive && (
-              <span style={{ marginLeft: '12px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(to right, #FF6C57, #B56AF1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+              <span style={{ marginLeft: '4px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(to right, #FF6C57, #B56AF1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                 <span className="material-icons" style={{ fontSize: '16px', animation: 'spin 1s linear infinite', background: 'linear-gradient(to right, #FF6C57, #B56AF1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>sync</span>
                 Fetching new leads...
               </span>
             )}
             {isRefreshing && (
-              <span style={{ marginLeft: '12px', color: '#2196f3', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ marginLeft: '4px', color: '#2196f3', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                 <span className="material-icons" style={{ fontSize: '16px', animation: 'spin 1s linear infinite' }}>sync</span>
                 Refreshing...
               </span>
             )}
           </span>
           <div className="selection-actions">
-            <button
-              className="icon-button"
-              type="button"
-              onClick={handleRefresh}
-              disabled={isLoading || isRefreshing}
-              aria-label="Refresh data"
-              style={{ padding: '8px', border: 'none', background: 'transparent' }}
-            >
-              <span
-                className="material-icons"
-                style={{ fontSize: '20px', animation: isRefreshing ? 'spin 1s linear infinite' : 'none', color: '#000000' }}
+            {showExtendButton && !disableExtend && (
+              <button
+                type="button"
+                onClick={openExtendModal}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  fontWeight: 400,
+                  borderRadius: '8px',
+                  border: '1px solid #000000',
+                  background: 'white',
+                  color: '#000000',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease'
+                }}
               >
-                {isRefreshing ? 'sync' : 'refresh'}
-              </span>
-            </button>
+                <span className="material-icons" style={{ fontSize: '18px' }}>add_circle</span>
+                Get more leads
+              </button>
+            )}
             <button
               type="button"
-              disabled={!run?.id || filteredItems.length === 0}
+              disabled={!run?.id || filteredItems.length === 0 || isEnrichmentRequesting}
               onClick={() => setIsDetailsModalOpen(true)}
               style={{
-                padding: '12px 20px',
+                padding: '8px 16px',
                 fontSize: '14px',
                 fontWeight: 600,
                 borderRadius: '8px',
                 border: 'none',
-                background: 'linear-gradient(to right, #FF6C57, #B56AF1)',
+                background: isEnrichmentRequesting 
+                  ? 'linear-gradient(to right, rgba(255, 108, 87, 0.5), rgba(181, 106, 241, 0.5))'
+                  : 'linear-gradient(to right, #FF6C57, #B56AF1)',
                 color: '#ffffff',
-                cursor: 'pointer',
+                cursor: isEnrichmentRequesting ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
                 transition: 'all 0.2s ease'
               }}
             >
-              Get more details
+              {isEnrichmentRequesting ? (
+                <>
+                  <span className="material-icons" style={{ fontSize: '16px', animation: 'spin 1s linear infinite' }}>sync</span>
+                  Enriching...
+                </>
+              ) : (
+                'Unlock details'
+              )}
             </button>
           </div>
         </div>
 
         <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>Signal snippet</th>
-                <th>Buyer context</th>
-                <th>Score</th>
-                <th>Contact & channels</th>
-                <th>Status</th>
-              </tr>
-            </thead>
+            {/* Determine leadset type for column rendering */}
+            {(() => {
+              const leadsetType = getLeadsetType(leadset)
+              const isBuyer = leadsetType === 'buyer' || leadsetType === 'mixed'
+              const isPartner = leadsetType === 'partner' || leadsetType === 'mixed'
+              
+              return (
+            <table>
+              <thead>
+                <tr>
+                  {/* Common columns */}
+                  <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '140px' }}>Lead</th>
+                  <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '200px', maxWidth: '250px' }}>About</th>
+                  <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '60px' }}>Score</th>
+                  <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '180px' }}>Email</th>
+                  <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '120px' }}>Phone</th>
+                  <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '90px' }}>LinkedIn</th>
+                  <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '100px' }}>Best Channel</th>
+                  <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '90px' }}>Lead Type</th>
+                  <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '120px' }}>Location</th>
+                  
+                  {/* Buyer-specific columns */}
+                  {isBuyer && <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '80px' }}>Size</th>}
+                  {isBuyer && <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '80px' }}>Buy Intent</th>}
+                  {isBuyer && <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '180px' }}>Buy Reason</th>}
+                  
+                  {/* Partner-specific columns */}
+                  {isPartner && <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '80px' }}>Partner Intent</th>}
+                  {isPartner && <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '180px' }}>Partner Reason</th>}
+                  {isPartner && <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '70px' }}>Overlap</th>}
+                  
+                  <th style={{ minWidth: '70px' }}>Status</th>
+                </tr>
+              </thead>
             <tbody>
               {showLoading && !paginatedItems.length ? (
                 [...Array(8)].map((_, i) => <BuyerItemSkeleton key={`skeleton-${i}`} />)
@@ -894,67 +1135,222 @@ export default function LeadsetDetail() {
                     : snippetText
                   return (
                     <tr key={itemId} className={isRecentlyEnriched ? 'recently-enriched' : ''}>
-                      <td>
-                        {item.sourceUrl ? (
-                          <a href={item.sourceUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 500, marginBottom: '4px', color: '#000000', textDecoration: 'none', display: 'block', cursor: 'pointer' }}>
-                            {item.entity?.company || '—'}
-                          </a>
-                        ) : (
-                          <div style={{ fontWeight: 500, marginBottom: '4px' }}>{item.entity?.company || '—'}</div>
-                        )}
-                        {item.entity?.domain && <div style={{ fontSize: '0.875em', color: '#666' }}>{item.entity.domain}</div>}
-                        {item.entityType && (
-                          <span className="chip" style={{ marginTop: '6px', display: 'inline-block' }}>
-                            {item.entityType === 'person' ? 'Person' : 'Company'}
+                      {/* Lead Name */}
+                      <td
+                        style={{ borderRight: '1px solid #e0e0e0', cursor: item.sourceUrl ? 'pointer' : 'default' }}
+                        onClick={(e) => {
+                          if (item.sourceUrl && !e.target.closest('a')) {
+                            window.open(item.sourceUrl, '_blank', 'noopener,noreferrer')
+                          }
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span className="material-icons" style={{ fontSize: '16px', color: '#667085', flexShrink: 0 }}>
+                            {item.entityType === 'company' ? 'business' : 'person'}
                           </span>
-                        )}
-                      </td>
-                      <td>
-                        <p
-                          className={`snippet ${isSnippetExpanded ? 'expanded' : ''}`}
-                          style={{ marginBottom: shouldTruncateSnippet ? '8px' : '4px' }}
-                        >
-                          {displayedSnippet || '—'}
-                        </p>
-                        {shouldTruncateSnippet && (
-                          <button
-                            type="button"
-                            onClick={() => toggleSnippetExpansion(itemId)}
-                            className="link-button"
-                            style={{ padding: 0, border: 'none', background: 'none', color: '#1976d2', fontWeight: 500, cursor: 'pointer' }}
-                          >
-                            {isSnippetExpanded ? 'Show less' : 'Read more'}
-                          </button>
-                        )}
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          {INSIGHT_FIELDS.map((field) => {
-                            const value = item.enrichment?.[field.key]
-                            return (
-                              <div key={`${itemId}-${field.key}`}>
-                                <div style={{ fontSize: '0.7em', color: '#475467', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                  {field.label}
-                                </div>
-                                <div style={{ fontSize: '0.85em', color: value ? '#101828' : '#98a2b3' }}>
-                                  {formatInsightValue(value)}
-                                </div>
-                              </div>
-                            )
-                          })}
+                          {item.sourceUrl ? (
+                            <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="lead-link">
+                              {item.entity?.company || '—'}
+                              <span className="lead-link-icon">↗</span>
+                            </a>
+                          ) : (
+                            <span style={{ fontWeight: 500 }}>{item.entity?.company || '—'}</span>
+                          )}
                         </div>
                       </td>
-                      <td>{formatScore(item.score, item)}%</td>
-                      <td>
-                        {item.enrichment?.email || item.enrichment?.phone ? (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {item.enrichment?.email && <a href={`mailto:${item.enrichment.email}`} style={{ color: '#1976d2' }}>{item.enrichment.email}</a>}
-                            {item.enrichment?.phone && <a href={`tel:${item.enrichment.phone}`} style={{ color: '#1976d2' }}>{item.enrichment.phone}</a>}
+
+                      {/* About / Snippet */}
+                      <td style={{ borderRight: '1px solid #e0e0e0', maxWidth: '250px' }}>
+                        <div
+                          onClick={() => toggleSnippetExpansion(itemId)}
+                          onMouseEnter={() => setHoveredSnippet(itemId)}
+                          onMouseLeave={() => setHoveredSnippet(null)}
+                          style={{ cursor: 'pointer', position: 'relative' }}
+                        >
+                          <div
+                            className="snippet"
+                            style={{
+                              fontSize: '12px',
+                              color: '#475467',
+                              lineHeight: '1.4',
+                              display: isSnippetExpanded ? 'block' : '-webkit-box',
+                              WebkitLineClamp: isSnippetExpanded ? 'unset' : 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            {snippetText ? highlightSnippet(snippetText) : '—'}
                           </div>
+                          {!isSnippetExpanded && hoveredSnippet === itemId && snippetText && (
+                            <span style={{ color: '#1976d2', fontWeight: 500, fontSize: '11px' }}>Read more</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Score */}
+                      <td style={{ borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>
+                        <span style={{ fontWeight: 600, color: '#101828' }}>{formatScore(item.score, item)}%</span>
+                      </td>
+
+                      {/* Email */}
+                      <td style={{ borderRight: '1px solid #e0e0e0' }}>
+                        {item.enrichment?.email && item.enrichment.email !== 'Not found' ? (
+                          <a href={`mailto:${item.enrichment.email}`} style={{ color: '#1976d2', fontSize: '12px', wordBreak: 'break-all' }}>
+                            {item.enrichment.email}
+                          </a>
+                        ) : item.enrichment?.email === 'Not found' ? (
+                          <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
                         ) : (
-                          <span style={{ color: '#999' }}>—</span>
+                          <span style={{ color: '#98a2b3' }}>—</span>
                         )}
                       </td>
+
+                      {/* Phone */}
+                      <td style={{ borderRight: '1px solid #e0e0e0' }}>
+                        {item.enrichment?.phone && item.enrichment.phone !== 'Not found' ? (
+                          <a href={`tel:${item.enrichment.phone}`} style={{ color: '#1976d2', fontSize: '12px' }}>
+                            {item.enrichment.phone}
+                          </a>
+                        ) : item.enrichment?.phone === 'Not found' ? (
+                          <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                        ) : (
+                          <span style={{ color: '#98a2b3' }}>—</span>
+                        )}
+                      </td>
+
+                      {/* LinkedIn URL */}
+                      <td style={{ borderRight: '1px solid #e0e0e0' }}>
+                        {item.enrichment?.linkedinUrl && item.enrichment.linkedinUrl !== 'Not found' ? (
+                          <a 
+                            href={item.enrichment.linkedinUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{ color: '#0077b5', fontSize: '12px' }}
+                          >
+                            View ↗
+                          </a>
+                        ) : item.enrichment?.linkedinUrl === 'Not found' ? (
+                          <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                        ) : (
+                          <span style={{ color: '#98a2b3' }}>—</span>
+                        )}
+                      </td>
+
+                      {/* Best Contact Channel */}
+                      <td style={{ borderRight: '1px solid #e0e0e0' }}>
+                        <span style={{ 
+                          color: item.enrichment?.primaryContactChannel ? '#101828' : '#98a2b3',
+                          fontSize: '12px'
+                        }}>
+                          {formatInsightValue(item.enrichment?.primaryContactChannel, 40)}
+                        </span>
+                      </td>
+
+                      {/* Lead Type */}
+                      <td style={{ borderRight: '1px solid #e0e0e0' }}>
+                        <span style={{ 
+                          color: item.enrichment?.leadType ? '#101828' : '#98a2b3',
+                          fontSize: '12px',
+                          fontWeight: item.enrichment?.leadType ? 500 : 400
+                        }}>
+                          {formatInsightValue(item.enrichment?.leadType, 40)}
+                        </span>
+                      </td>
+
+                      {/* Location */}
+                      <td style={{ borderRight: '1px solid #e0e0e0' }}>
+                        <span style={{ 
+                          color: item.enrichment?.geoLocation ? '#101828' : '#98a2b3',
+                          fontSize: '12px'
+                        }}>
+                          {formatInsightValue(item.enrichment?.geoLocation, 50)}
+                        </span>
+                      </td>
+
+                      {/* Buyer-specific: Company Size */}
+                      {isBuyer && (
+                        <td style={{ borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>
+                          <span style={{ 
+                            color: item.enrichment?.employeeCount ? '#101828' : '#98a2b3',
+                            fontSize: '12px'
+                          }}>
+                            {formatInsightValue(item.enrichment?.employeeCount)}
+                          </span>
+                        </td>
+                      )}
+
+                      {/* Buyer-specific: Buying Intent */}
+                      {isBuyer && (
+                        <td style={{ borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>
+                          <span style={{ 
+                            color: item.enrichment?.buyingIntent === 'high' ? '#16a34a' 
+                                 : item.enrichment?.buyingIntent === 'medium' ? '#ca8a04'
+                                 : item.enrichment?.buyingIntent === 'low' ? '#dc2626'
+                                 : '#98a2b3',
+                            fontWeight: item.enrichment?.buyingIntent ? 600 : 400,
+                            fontSize: '12px'
+                          }}>
+                            {capitalizeFirst(formatInsightValue(item.enrichment?.buyingIntent))}
+                          </span>
+                        </td>
+                      )}
+
+                      {/* Buyer-specific: Buying Intent Reason */}
+                      {isBuyer && (
+                        <td style={{ borderRight: '1px solid #e0e0e0' }}>
+                          <span style={{ 
+                            color: item.enrichment?.buyingIntentReason ? '#475467' : '#98a2b3',
+                            fontSize: '11px',
+                            lineHeight: '1.3'
+                          }}>
+                            {formatInsightValue(item.enrichment?.buyingIntentReason, 100)}
+                          </span>
+                        </td>
+                      )}
+
+                      {/* Partner-specific: Partnership Intent */}
+                      {isPartner && (
+                        <td style={{ borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>
+                          <span style={{ 
+                            color: item.enrichment?.partnershipIntentLevel?.toLowerCase() === 'high' ? '#16a34a' 
+                                 : item.enrichment?.partnershipIntentLevel?.toLowerCase() === 'medium' ? '#ca8a04'
+                                 : item.enrichment?.partnershipIntentLevel?.toLowerCase() === 'low' ? '#dc2626'
+                                 : '#98a2b3',
+                            fontWeight: item.enrichment?.partnershipIntentLevel ? 600 : 400,
+                            fontSize: '12px'
+                          }}>
+                            {capitalizeFirst(formatInsightValue(item.enrichment?.partnershipIntentLevel))}
+                          </span>
+                        </td>
+                      )}
+
+                      {/* Partner-specific: Partnership Intent Reason */}
+                      {isPartner && (
+                        <td style={{ borderRight: '1px solid #e0e0e0' }}>
+                          <span style={{ 
+                            color: item.enrichment?.partnershipIntentReason ? '#475467' : '#98a2b3',
+                            fontSize: '11px',
+                            lineHeight: '1.3'
+                          }}>
+                            {formatInsightValue(item.enrichment?.partnershipIntentReason, 100)}
+                          </span>
+                        </td>
+                      )}
+
+                      {/* Partner-specific: Audience Overlap Score */}
+                      {isPartner && (
+                        <td style={{ borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>
+                          <span style={{ 
+                            color: item.enrichment?.audienceOverlapScore ? '#101828' : '#98a2b3',
+                            fontWeight: item.enrichment?.audienceOverlapScore ? 600 : 400,
+                            fontSize: '12px'
+                          }}>
+                            {formatInsightValue(item.enrichment?.audienceOverlapScore)}
+                          </span>
+                        </td>
+                      )}
+
+                      {/* Status */}
                       <td>
                         <span className={`enrichment-pill enrichment-${item.enrichment?.status || 'none'}`}>
                           {item.enrichment?.status || 'none'}
@@ -966,13 +1362,15 @@ export default function LeadsetDetail() {
               )}
               {!showLoading && !filteredItems.length && (
                 <tr>
-                  <td colSpan="6">
+                  <td colSpan={9 + (isBuyer ? 3 : 0) + (isPartner ? 3 : 0) + 1}>
                     <div className="empty-state">No leads match the current filters. Clear filters to see all results.</div>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+              )
+            })()}
         </div>
 
         {filteredItems.length > PAGE_SIZE && (

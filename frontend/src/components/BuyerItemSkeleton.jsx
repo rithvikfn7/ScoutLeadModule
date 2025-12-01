@@ -10,9 +10,10 @@ export default function BuyerItemSkeleton() {
         <div className="skeleton skeleton-snippet" style={{ width: '60%', marginTop: '4px' }} />
       </td>
       <td>
-        <div className="skeleton skeleton-snippet" style={{ width: '90%' }} />
-        <div className="skeleton skeleton-snippet" style={{ width: '70%', marginTop: '4px' }} />
-        <div className="skeleton skeleton-snippet" style={{ width: '50%', marginTop: '4px' }} />
+        <div className="skeleton skeleton-snippet" style={{ width: '70%' }} />
+      </td>
+      <td>
+        <div className="skeleton skeleton-snippet" style={{ width: '60%' }} />
       </td>
       <td>
         <div className="skeleton skeleton-score" />

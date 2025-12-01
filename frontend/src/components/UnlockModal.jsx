@@ -14,8 +14,8 @@ export default function UnlockModal({
 
   return (
     <div className="modal-backdrop">
-      <div className="modal-panel" style={{ maxWidth: '1200px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '0', textAlign: 'center', paddingTop: '20px' }}>
-        <h3 className="modal-title" style={{ marginBottom: '8px', lineHeight: '1.2', textAlign: 'center' }}>Get more details</h3>
+      <div className="modal-panel" style={{ maxWidth: '1200px', minWidth: '500px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '0', textAlign: 'center', paddingTop: '20px' }}>
+        <h3 className="modal-title" style={{ marginBottom: '8px', lineHeight: '1.2', textAlign: 'center' }}>Get More Details</h3>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', marginTop: '0px', lineHeight: '1.4', textAlign: 'center', fontSize: '14px' }}>
           This will enrich <strong>all {count}</strong> leads in this leadset.
         </p>
@@ -97,11 +97,11 @@ export default function UnlockModal({
           </div>
         </div>
 
-        <div className="modal-actions">
-          <button className="cta-secondary" type="button" onClick={onCancel} disabled={loading}>
+        <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', flexWrap: 'nowrap', minWidth: '400px' }}>
+          <button className="cta-secondary" type="button" onClick={onCancel} disabled={loading} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
             Cancel
           </button>
-          <button className="cta-primary" type="button" onClick={onConfirm} disabled={!canSubmit}>
+          <button className="cta-primary" type="button" onClick={onConfirm} disabled={!canSubmit} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
             {loading ? 'Requesting…' : 'Unlock selected fields'}
           </button>
         </div>
