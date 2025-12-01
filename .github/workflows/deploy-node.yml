@@ -6,10 +6,6 @@ name: Deploy Node.js Backend
 on:
   workflow_dispatch:
     inputs:
-      service_name:
-        description: "Service name (must match K8s app name, auto-detected from repo name if not provided)"
-        required: false
-        type: string
       environment:
         description: "Deployment environment"
         required: true
@@ -67,39 +63,46 @@ permissions:
   contents: read
   actions: read
 
+# Service name configuration - matches K8s app name
+env:
+  SERVICE_NAME: leads-module-backend
+
 jobs:
-  determine-service:
+  trigger-deployment:
     runs-on: ubuntu-latest
-    outputs:
-      service_name: ${{ steps.service.outputs.service_name }}
     steps:
-      - name: Determine service name
-        id: service
-        run: |
-          if [ -n "${{ github.event.inputs.service_name }}" ]; then
-            SERVICE_NAME="${{ github.event.inputs.service_name }}"
-          else
-            # Default to leads-module-backend for backend (matches K8s config)
-            SERVICE_NAME="leads-module-backend"
-          fi
-          echo "service_name=${SERVICE_NAME}" >> $GITHUB_OUTPUT
-          echo "✅ Service name: ${SERVICE_NAME}"
+      - name: Trigger base repository deployment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const inputs = {
+              source_repo: '${{ github.repository }}',
+              source_ref: '${{ github.ref_name }}',
+              service_name: '${{ env.SERVICE_NAME }}',
+              dockerfile: '${{ github.event.inputs.dockerfile }}' || 'backend/Dockerfile',
+              build_context: '${{ github.event.inputs.build_context }}' || 'backend',
+              build_target: '${{ github.event.inputs.build_target }}' || '',
+              environment: '${{ github.event.inputs.environment }}' || 'dev',
+              commit_sha: '${{ github.event.inputs.commit_sha }}' || '${{ github.sha }}',
+              force_rebuild: ${{ github.event.inputs.force_rebuild }} || false,
+              purge_cdn_cache: '${{ github.event.inputs.purge_cdn_cache }}' || 'false',
+              fastly_CDN_ID: '${{ github.event.inputs.fastly_CDN_ID }}' || '',
+              fastly_CDN_Edge_dictionary: '${{ github.event.inputs.fastly_CDN_Edge_dictionary }}' || ''
+            };
 
-  deploy:
-    needs: determine-service
-    uses: fn7io/fn7/.github/workflows/reusable-deploy-external-node.yml@main
-    with:
-      source_repo: ${{ github.repository }}
-      source_ref: ${{ github.ref_name }}
-      service_name: ${{ needs.determine-service.outputs.service_name }}
-      dockerfile: ${{ github.event.inputs.dockerfile || 'backend/Dockerfile' }}
-      build_context: ${{ github.event.inputs.build_context || 'backend' }}
-      build_target: ${{ github.event.inputs.build_target || '' }}
-      environment: ${{ github.event.inputs.environment || 'dev' }}
-      commit_sha: ${{ github.event.inputs.commit_sha || github.sha }}
-      force_rebuild: ${{ github.event.inputs.force_rebuild || false }}
-      purge_cdn_cache: ${{ github.event.inputs.purge_cdn_cache || 'false' }}
-      fastly_CDN_ID: ${{ github.event.inputs.fastly_CDN_ID || '' }}
-      fastly_CDN_Edge_dictionary: ${{ github.event.inputs.fastly_CDN_Edge_dictionary || '' }}
-    secrets: inherit
+            console.log('🚀 Triggering deployment in base repository...');
+            console.log('📦 Service:', inputs.service_name);
+            console.log('🌍 Environment:', inputs.environment);
+            console.log('📂 Source repo:', inputs.source_repo);
 
+            const response = await github.rest.actions.createWorkflowDispatch({
+              owner: 'fn7io',
+              repo: 'fn7',
+              workflow_id: 'deploy-external-node.yml',
+              ref: 'main',
+              inputs: inputs
+            });
+
+            console.log('✅ Deployment triggered successfully!');
+            console.log('🔗 Check status at: https://github.com/fn7io/fn7/actions');
