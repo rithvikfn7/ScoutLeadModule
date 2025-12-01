@@ -8,8 +8,11 @@ import { useDataCache } from '../contexts/DataCacheContext'
 const API_BASE = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000'
 
 export default function LeadsetsDashboard() {
+  // eslint-disable-next-line no-unused-vars
   const [searchTerm, _setSearchTerm] = useState('')
+  // eslint-disable-next-line no-unused-vars
   const [statusFilter, _setStatusFilter] = useState('all')
+  // eslint-disable-next-line no-unused-vars
   const [sortKey, _setSortKey] = useState('latest')
   // Note: Setters are currently unused but may be needed for future UI controls
   const [showSeedModal, setShowSeedModal] = useState(false)
