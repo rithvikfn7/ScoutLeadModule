@@ -91,38 +91,38 @@ jobs:
               build_context: '${{ github.event.inputs.build_context }}' || 'frontend',
               react_app_dir: '${{ github.event.inputs.react_app_dir }}' || 'frontend'
             };
-            
+
             // Only add optional inputs if they differ from defaults or are provided
             const sourceRef = '${{ github.ref_name }}';
             if (sourceRef && sourceRef !== 'main') {
               inputs.source_ref = sourceRef;
             }
-            
+
             const environment = '${{ github.event.inputs.environment }}' || 'dev';
             if (environment && environment !== 'dev') {
               inputs.environment = environment;
             }
-            
+
             const commitSha = '${{ github.event.inputs.commit_sha }}';
             if (commitSha) {
               inputs.commit_sha = commitSha;
             }
-            
+
             const forceRebuild = '${{ github.event.inputs.force_rebuild }}' === 'true';
             if (forceRebuild) {
               inputs.force_rebuild = true;
             }
-            
+
             const purgeCdnCache = '${{ github.event.inputs.purge_cdn_cache }}';
             if (purgeCdnCache && purgeCdnCache !== 'false') {
               inputs.purge_cdn_cache = purgeCdnCache;
             }
-            
+
             const fastlyCdnId = '${{ github.event.inputs.fastly_CDN_ID }}';
             if (fastlyCdnId) {
               inputs.fastly_CDN_ID = fastlyCdnId;
             }
-            
+
             const fastlyCdnEdgeDict = '${{ github.event.inputs.fastly_CDN_Edge_dictionary }}';
             if (fastlyCdnEdgeDict) {
               inputs.fastly_CDN_Edge_dictionary = fastlyCdnEdgeDict;
@@ -130,8 +130,9 @@ jobs:
 
             console.log('🚀 Triggering deployment in base repository...');
             console.log('📦 Service:', inputs.service_name);
-            console.log('🌍 Environment:', inputs.environment);
+            console.log('🌍 Environment:', environment || 'dev (default)');
             console.log('📂 Source repo:', inputs.source_repo);
+            console.log('📋 Inputs being sent:', Object.keys(inputs).length, 'properties');
 
             // Try with full path first, fallback to filename
             let response;

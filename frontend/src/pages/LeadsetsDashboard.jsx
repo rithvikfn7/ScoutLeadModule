@@ -8,30 +8,30 @@ import { useDataCache } from '../contexts/DataCacheContext'
 const API_BASE = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000'
 
 export default function LeadsetsDashboard() {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [sortKey, setSortKey] = useState('latest')
+  const [searchTerm] = useState('')
+  const [statusFilter] = useState('all')
+  const [sortKey] = useState('latest')
   const [showSeedModal, setShowSeedModal] = useState(false)
   const [seedStatus, setSeedStatus] = useState({ loading: false, message: '' })
   const fileInputRef = useRef(null)
   const navigate = useNavigate()
   const mountTimeRef = useRef(Date.now())
   const [forceShowLoader, setForceShowLoader] = useState(true)
-  
+
   // Get cached data from FN7 SDK reads
   const { leadsets = [], isLoading = true, error, isInitialized = false, refreshCache, refreshCounter } = useDataCache()
-  
+
   // Handle file upload and seed
   const handleSeedFromFile = useCallback(async (event) => {
     const file = event.target.files?.[0]
     if (!file) return
-    
+
     setSeedStatus({ loading: true, message: 'Reading file...' })
-    
+
     try {
       const text = await file.text()
       const data = JSON.parse(text)
-      
+
       // Support:
       // - Array format: [ {...}, {...} ]
       // - Object with "leadsets": { leadsets: [...] }
@@ -40,79 +40,79 @@ export default function LeadsetsDashboard() {
         ? data
         : (data.leadsets || data.lead_sets || [])
       const settings = data.settings || null
-      
+
       if (!Array.isArray(leadsetsArray) || leadsetsArray.length === 0) {
         setSeedStatus({ loading: false, message: 'Error: No leadsets found in file' })
         return
       }
-      
+
       setSeedStatus({ loading: true, message: `Seeding ${leadsetsArray.length} leadsets...` })
-      
+
       const response = await fetch(`${API_BASE}/seed`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ leadsets: leadsetsArray, settings }),
       })
-      
+
       if (!response.ok) {
         throw new Error(`Seed failed: ${response.statusText}`)
       }
-      
+
       const result = await response.json()
       setSeedStatus({ loading: false, message: result.message })
-      
+
       // Refresh the cache to show new leadsets
       if (refreshCache) {
         setTimeout(() => refreshCache(), 500)
       }
-      
+
       // Close modal after success
       setTimeout(() => {
         setShowSeedModal(false)
         setSeedStatus({ loading: false, message: '' })
       }, 2000)
-      
+
     } catch (err) {
       setSeedStatus({ loading: false, message: `Error: ${err.message}` })
     }
-    
+
     // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
   }, [refreshCache])
-  
+
   // Handle delete all data (factory reset)
   const handleDeleteAll = useCallback(async () => {
     if (!window.confirm('⚠️ FACTORY RESET\n\nThis will:\n• Delete all Exa websets associated with your leadsets\n• Delete all Firebase data (leadsets, runs, items, enrichments)\n\nThis cannot be undone. Continue?')) {
       return
     }
-    
+
     setSeedStatus({ loading: true, message: 'Factory reset in progress... Deleting Exa websets and Firebase data...' })
-    
+
     try {
       const response = await fetch(`${API_BASE}/seed`, { method: 'DELETE' })
-      
+
       if (!response.ok) {
         throw new Error(`Factory reset failed: ${response.statusText}`)
       }
-      
+
       const result = await response.json()
-      setSeedStatus({ 
-        loading: false, 
+      setSeedStatus({
+        loading: false,
         message: result.message || `Factory reset complete! Deleted ${result.exaWebsetsDeleted || 0} Exa websets and ${result.firebaseDocsDeleted || 0} Firebase documents.`
       })
-      
+
       // Refresh the cache
       if (refreshCache) {
         setTimeout(() => refreshCache(true), 500)
       }
-      
+
     } catch (err) {
       setSeedStatus({ loading: false, message: `Error: ${err.message}` })
     }
   }, [refreshCache])
-  
+
   // Show skeleton for minimum 500ms to ensure it's visible during fast loads
   useEffect(() => {
     if (isInitialized && !isLoading) {
@@ -129,7 +129,7 @@ export default function LeadsetsDashboard() {
       setForceShowLoader(true)
     }
   }, [isInitialized, isLoading])
-  
+
   const showLoading = !isInitialized || isLoading || forceShowLoader
 
   const filteredLeadsets = useMemo(() => {
@@ -170,7 +170,7 @@ export default function LeadsetsDashboard() {
   const totalLeads = useMemo(() => {
     return leadsets.reduce((sum, leadset) => sum + (leadset.est_count || 0), 0)
   }, [leadsets])
-  
+
 
   return (
     <main className="page">
@@ -243,7 +243,7 @@ export default function LeadsetsDashboard() {
           </div>
         )}
       </section>
-      
+
       {/* Seed Modal */}
       {showSeedModal && (
         <div className="modal-overlay" onClick={() => !seedStatus.loading && setShowSeedModal(false)}>
@@ -253,7 +253,7 @@ export default function LeadsetsDashboard() {
               Upload a JSON file containing leadsets to seed your database.
               The file should be an array of leadset objects or an object with a "leadsets" array.
             </p>
-            
+
             <input
               ref={fileInputRef}
               type="file"
@@ -261,7 +261,7 @@ export default function LeadsetsDashboard() {
               onChange={handleSeedFromFile}
               style={{ display: 'none' }}
             />
-            
+
             <div style={{ display: 'flex', gap: '12px', flexDirection: 'column' }}>
               <button
                 className="btn btn-primary"
@@ -272,7 +272,7 @@ export default function LeadsetsDashboard() {
                 <span className="material-icons" style={{ fontSize: '18px', marginRight: '8px' }}>upload_file</span>
                 {seedStatus.loading ? 'Processing...' : 'Upload JSON File'}
               </button>
-              
+
               <button
                 className="btn btn-danger"
                 onClick={handleDeleteAll}
@@ -283,7 +283,7 @@ export default function LeadsetsDashboard() {
                 Factory Reset (Delete All)
               </button>
             </div>
-            
+
             {seedStatus.message && (
               <div style={{
                 marginTop: '16px',
@@ -295,7 +295,7 @@ export default function LeadsetsDashboard() {
                 {seedStatus.message}
               </div>
             )}
-            
+
             <button
               className="btn"
               onClick={() => setShowSeedModal(false)}

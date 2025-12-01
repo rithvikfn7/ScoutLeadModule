@@ -80,10 +80,10 @@ const highlightSnippet = (text) => {
 
 /**
  * BASE_FIELD_OPTIONS
- * 
+ *
  * All supported enrichment fields with UI metadata.
  * These are filtered per-leadset based on enrichment_fields from Firebase.
- * 
+ *
  * Categories:
  * - Contact: email, phone, hasLinkedinMessaging, primaryContactChannel
  * - Classification: leadType, geoLocation, employeeCount
@@ -200,14 +200,6 @@ const LEADSET_ENRICHMENT_FIELD_MAP = {
 
 const getItemId = (item) => item.itemId || item.id
 
-const fieldValueExists = (enrichment = {}, fieldKey) => {
-  const value = enrichment?.[fieldKey]
-  if (typeof value === 'string') {
-    return value.trim().length > 0
-  }
-  return Boolean(value)
-}
-
 function formatInsightValue(value, maxLength = 180) {
   if (!value) return '—'
   if (typeof value !== 'string') {
@@ -279,10 +271,10 @@ function formatScore(score, item) {
 export default function LeadsetDetail() {
   const { leadsetId } = useParams()
   const navigate = useNavigate()
-  
+
   // Get data from cache (reads from Firebase via FN7 SDK)
   const { leadset, run, items, settings, isLoading, error, isInitialized, refreshLeadset, refreshCounter } = useLeadsetCache(leadsetId)
-  
+
   // Local UI state
   const [websetItems, setWebsetItems] = useState([]) // Items from Exa webset polling
   const [activeFilters, setActiveFilters] = useState(DEFAULT_FILTERS)
@@ -297,11 +289,10 @@ export default function LeadsetDetail() {
   const [websetData, setWebsetData] = useState(null)
   const [toast, setToast] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [recentlyEnrichedIds, setRecentlyEnrichedIds] = useState(() => new Set())
   const [expandedSnippets, setExpandedSnippets] = useState(() => new Set())
   const [hoveredSnippet, setHoveredSnippet] = useState(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  
+
   const PAGE_SIZE = 10
   const toastTimeoutRef = useRef(null)
   const websetPollIntervalRef = useRef(null)
@@ -311,7 +302,7 @@ export default function LeadsetDetail() {
   const activeEnrichmentIdRef = useRef(null)
 
   const showLoading = isLoading || !isInitialized || isRequestingRun
-  
+
   // Derive which enrichment fields are allowed for this leadset (from leadset.enrichment_fields)
   const allowedFieldKeys = useMemo(() => {
     const rawFields = Array.isArray(leadset?.enrichment_fields)
@@ -362,11 +353,16 @@ export default function LeadsetDetail() {
 
   // Cleanup on unmount
   useEffect(() => {
+    const toastTimeout = toastTimeoutRef.current
+    const recentHighlightTimeout = recentHighlightTimeoutRef.current
+    const websetPollInterval = websetPollIntervalRef.current
+    const enrichmentPollInterval = enrichmentPollIntervalRef.current
+
     return () => {
-      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
-      if (recentHighlightTimeoutRef.current) clearTimeout(recentHighlightTimeoutRef.current)
-      if (websetPollIntervalRef.current) clearInterval(websetPollIntervalRef.current)
-      if (enrichmentPollIntervalRef.current) clearInterval(enrichmentPollIntervalRef.current)
+      if (toastTimeout) clearTimeout(toastTimeout)
+      if (recentHighlightTimeout) clearTimeout(recentHighlightTimeout)
+      if (websetPollInterval) clearInterval(websetPollInterval)
+      if (enrichmentPollInterval) clearInterval(enrichmentPollInterval)
       activeEnrichmentIdRef.current = null
     }
   }, [])
@@ -396,12 +392,12 @@ export default function LeadsetDetail() {
       try {
         const webset = await fetchWebsetStatus(leadsetId, runId)
         setWebsetData(webset)
-        
+
         // Update websetItems with items from Exa
         if (webset?.items && Array.isArray(webset.items)) {
           setWebsetItems(webset.items.map(item => ({ ...item, __source: 'webset' })))
         }
-        
+
         const isRunning = ['running', 'processing', 'pending'].includes(webset?.status)
         if (!isRunning && websetPollIntervalRef.current) {
           clearInterval(websetPollIntervalRef.current)
@@ -413,7 +409,7 @@ export default function LeadsetDetail() {
         console.error('Failed to fetch webset status:', err)
       }
     }
-    
+
     fetchAndUpdateWebset()
     websetPollIntervalRef.current = setInterval(fetchAndUpdateWebset, 3000)
   }, [leadsetId, refreshLeadset])
@@ -438,10 +434,10 @@ export default function LeadsetDetail() {
     setIsRequestingRun(true)
     setWebsetData(null)
     setIsExtendModalOpen(false)
-    
+
     try {
       const runDoc = await startLeadsetRun(leadsetId, { mode, count })
-      
+
       if (runDoc?.id) {
         startWebsetPolling(runDoc.id)
         showToast(
@@ -545,8 +541,6 @@ export default function LeadsetDetail() {
     return filteredItems.slice(start, start + PAGE_SIZE)
   }, [filteredItems, currentPage])
 
-  const isFilterActive = Boolean(searchTerm?.trim()) || hasContactFilter || recencyFilter.length > 0
-
   const toggleFilter = (key, value) => {
     setActiveFilters((prev) => {
       const current = prev[key] || []
@@ -571,17 +565,6 @@ export default function LeadsetDetail() {
       return next
     })
   }, [])
-
-  // Handle refresh with loading state
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true)
-    try {
-      await refreshLeadset()
-    } finally {
-      // Add a small delay for UX
-      setTimeout(() => setIsRefreshing(false), 500)
-    }
-  }, [refreshLeadset])
 
   // Handle unlock (enrichment) - calls backend API
   // Enriches the entire webset (all leads)
@@ -693,9 +676,9 @@ export default function LeadsetDetail() {
       showToast('No run available to cancel.', 'error')
       return
     }
-    
+
     if (!window.confirm('Are you sure you want to cancel this run?')) return
-    
+
     setIsCancelingRun(true)
     try {
       await cancelRun(leadsetId, run.id)
@@ -726,13 +709,13 @@ export default function LeadsetDetail() {
   const overallStats = useMemo(() => {
     const uniqueKeys = new Set()
     finalItems.forEach((item) => {
-      const key = item.entity?.company?.toLowerCase() || 
-                  item.entity?.domain?.toLowerCase() || 
-                  item.sourceUrl?.toLowerCase() || 
+      const key = item.entity?.company?.toLowerCase() ||
+                  item.entity?.domain?.toLowerCase() ||
+                  item.sourceUrl?.toLowerCase() ||
                   getItemId(item)
       if (key) uniqueKeys.add(key)
     })
-    
+
     return {
       totalBuyers: finalItems.length,
       totalEnriched: finalItems.filter(hasContactInfo).length,
@@ -740,19 +723,13 @@ export default function LeadsetDetail() {
     }
   }, [finalItems])
 
-  const overallEnrichmentRate = useMemo(() => {
-    if (!overallStats.totalBuyers) return 0
-    return Math.round((overallStats.totalEnriched / overallStats.totalBuyers) * 100)
-  }, [overallStats])
-
   const activeStatus = latestStats.status || 'idle'
   const normalizedStatus = activeStatus.toLowerCase()
-  const statusClass = statusClassMap[normalizedStatus] ?? statusClassMap.idle
   // Prioritize run.status over websetData.status, especially for terminal states
   // When run is idle/completed, use that instead of websetData which might be stale
   const shouldUseRunStatus = ['idle', 'completed', 'failed'].includes(normalizedStatus)
-  const finalWebsetStatus = shouldUseRunStatus 
-    ? normalizedStatus 
+  const finalWebsetStatus = shouldUseRunStatus
+    ? normalizedStatus
     : (websetData?.status?.toLowerCase() || normalizedStatus)
   const statusDisplayText = finalWebsetStatus.charAt(0).toUpperCase() + finalWebsetStatus.slice(1)
   const fieldCostOverrides = settings?.cost?.fields || null
@@ -766,7 +743,7 @@ export default function LeadsetDetail() {
       acc[option.key] = parsedValue
       return acc
     }, {})
-  }, [fieldCostOverrides])
+  }, [fieldCostOverrides, FIELD_OPTIONS])
   const perBuyerCost = useMemo(() => {
     if (!selectedFields.size) return 0
     let total = 0
@@ -1062,7 +1039,7 @@ export default function LeadsetDetail() {
                 fontWeight: 600,
                 borderRadius: '8px',
                 border: 'none',
-                background: isEnrichmentRequesting 
+                background: isEnrichmentRequesting
                   ? 'linear-gradient(to right, rgba(255, 108, 87, 0.5), rgba(181, 106, 241, 0.5))'
                   : 'linear-gradient(to right, #FF6C57, #B56AF1)',
                 color: '#ffffff',
@@ -1091,7 +1068,7 @@ export default function LeadsetDetail() {
               const leadsetType = getLeadsetType(leadset)
               const isBuyer = leadsetType === 'buyer' || leadsetType === 'mixed'
               const isPartner = leadsetType === 'partner' || leadsetType === 'mixed'
-              
+
               return (
             <table>
               <thead>
@@ -1106,17 +1083,17 @@ export default function LeadsetDetail() {
                   <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '100px' }}>Best Channel</th>
                   <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '90px' }}>Lead Type</th>
                   <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '120px' }}>Location</th>
-                  
+
                   {/* Buyer-specific columns */}
                   {isBuyer && <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '80px' }}>Size</th>}
                   {isBuyer && <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '80px' }}>Buy Intent</th>}
                   {isBuyer && <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '180px' }}>Buy Reason</th>}
-                  
+
                   {/* Partner-specific columns */}
                   {isPartner && <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '80px' }}>Partner Intent</th>}
                   {isPartner && <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '180px' }}>Partner Reason</th>}
                   {isPartner && <th style={{ borderRight: '1px solid #e0e0e0', minWidth: '70px' }}>Overlap</th>}
-                  
+
                   <th style={{ minWidth: '70px' }}>Status</th>
                 </tr>
               </thead>
@@ -1126,15 +1103,10 @@ export default function LeadsetDetail() {
               ) : (
                 paginatedItems.map((item) => {
                   const itemId = getItemId(item)
-                  const isRecentlyEnriched = recentlyEnrichedIds.has(itemId)
                   const snippetText = item.snippet || ''
                   const isSnippetExpanded = expandedSnippets.has(itemId)
-                  const shouldTruncateSnippet = snippetText.length > SNIPPET_PREVIEW_LENGTH
-                  const displayedSnippet = !isSnippetExpanded && shouldTruncateSnippet
-                    ? `${snippetText.slice(0, SNIPPET_PREVIEW_LENGTH).trim()}…`
-                    : snippetText
                   return (
-                    <tr key={itemId} className={isRecentlyEnriched ? 'recently-enriched' : ''}>
+                    <tr key={itemId}>
                       {/* Lead Name */}
                       <td
                         style={{ borderRight: '1px solid #e0e0e0', cursor: item.sourceUrl ? 'pointer' : 'default' }}
@@ -1221,9 +1193,9 @@ export default function LeadsetDetail() {
                       {/* LinkedIn URL */}
                       <td style={{ borderRight: '1px solid #e0e0e0' }}>
                         {item.enrichment?.linkedinUrl && item.enrichment.linkedinUrl !== 'Not found' ? (
-                          <a 
-                            href={item.enrichment.linkedinUrl} 
-                            target="_blank" 
+                          <a
+                            href={item.enrichment.linkedinUrl}
+                            target="_blank"
                             rel="noopener noreferrer"
                             style={{ color: '#0077b5', fontSize: '12px' }}
                           >
@@ -1238,7 +1210,7 @@ export default function LeadsetDetail() {
 
                       {/* Best Contact Channel */}
                       <td style={{ borderRight: '1px solid #e0e0e0' }}>
-                        <span style={{ 
+                        <span style={{
                           color: item.enrichment?.primaryContactChannel ? '#101828' : '#98a2b3',
                           fontSize: '12px'
                         }}>
@@ -1248,7 +1220,7 @@ export default function LeadsetDetail() {
 
                       {/* Lead Type */}
                       <td style={{ borderRight: '1px solid #e0e0e0' }}>
-                        <span style={{ 
+                        <span style={{
                           color: item.enrichment?.leadType ? '#101828' : '#98a2b3',
                           fontSize: '12px',
                           fontWeight: item.enrichment?.leadType ? 500 : 400
@@ -1259,7 +1231,7 @@ export default function LeadsetDetail() {
 
                       {/* Location */}
                       <td style={{ borderRight: '1px solid #e0e0e0' }}>
-                        <span style={{ 
+                        <span style={{
                           color: item.enrichment?.geoLocation ? '#101828' : '#98a2b3',
                           fontSize: '12px'
                         }}>
@@ -1270,7 +1242,7 @@ export default function LeadsetDetail() {
                       {/* Buyer-specific: Company Size */}
                       {isBuyer && (
                         <td style={{ borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>
-                          <span style={{ 
+                          <span style={{
                             color: item.enrichment?.employeeCount ? '#101828' : '#98a2b3',
                             fontSize: '12px'
                           }}>
@@ -1282,8 +1254,8 @@ export default function LeadsetDetail() {
                       {/* Buyer-specific: Buying Intent */}
                       {isBuyer && (
                         <td style={{ borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>
-                          <span style={{ 
-                            color: item.enrichment?.buyingIntent === 'high' ? '#16a34a' 
+                          <span style={{
+                            color: item.enrichment?.buyingIntent === 'high' ? '#16a34a'
                                  : item.enrichment?.buyingIntent === 'medium' ? '#ca8a04'
                                  : item.enrichment?.buyingIntent === 'low' ? '#dc2626'
                                  : '#98a2b3',
@@ -1298,7 +1270,7 @@ export default function LeadsetDetail() {
                       {/* Buyer-specific: Buying Intent Reason */}
                       {isBuyer && (
                         <td style={{ borderRight: '1px solid #e0e0e0' }}>
-                          <span style={{ 
+                          <span style={{
                             color: item.enrichment?.buyingIntentReason ? '#475467' : '#98a2b3',
                             fontSize: '11px',
                             lineHeight: '1.3'
@@ -1311,8 +1283,8 @@ export default function LeadsetDetail() {
                       {/* Partner-specific: Partnership Intent */}
                       {isPartner && (
                         <td style={{ borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>
-                          <span style={{ 
-                            color: item.enrichment?.partnershipIntentLevel?.toLowerCase() === 'high' ? '#16a34a' 
+                          <span style={{
+                            color: item.enrichment?.partnershipIntentLevel?.toLowerCase() === 'high' ? '#16a34a'
                                  : item.enrichment?.partnershipIntentLevel?.toLowerCase() === 'medium' ? '#ca8a04'
                                  : item.enrichment?.partnershipIntentLevel?.toLowerCase() === 'low' ? '#dc2626'
                                  : '#98a2b3',
@@ -1327,7 +1299,7 @@ export default function LeadsetDetail() {
                       {/* Partner-specific: Partnership Intent Reason */}
                       {isPartner && (
                         <td style={{ borderRight: '1px solid #e0e0e0' }}>
-                          <span style={{ 
+                          <span style={{
                             color: item.enrichment?.partnershipIntentReason ? '#475467' : '#98a2b3',
                             fontSize: '11px',
                             lineHeight: '1.3'
@@ -1340,7 +1312,7 @@ export default function LeadsetDetail() {
                       {/* Partner-specific: Audience Overlap Score */}
                       {isPartner && (
                         <td style={{ borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>
-                          <span style={{ 
+                          <span style={{
                             color: item.enrichment?.audienceOverlapScore ? '#101828' : '#98a2b3',
                             fontWeight: item.enrichment?.audienceOverlapScore ? 600 : 400,
                             fontSize: '12px'
