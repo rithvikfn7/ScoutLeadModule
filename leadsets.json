@@ -1,0 +1,24 @@
+[
+{
+  "id": "ls_dtc_us_beauty_cac_ugc11",
+  "name": "US DTC Beauty (0–$2M) — CAC & UGC asks",
+  "description": "DTC beauty brands discussing CAC reduction, UGC sourcing, and budget constraints.",
+  "prompt": "Find US DTC beauty brands under $2M revenue discussing CAC reduction, UGC briefs, influencer outreach, or creative testing problems on Shopify/Klaviyo. Prioritize founders/marketing leads asking for help, budgets, or X vs Y tool comparisons.",
+  "segment": {
+    "segment_archetype": "DTC brand (beauty)",
+    "geo_region": "US",
+    "firmographic_company_size": "0–2M",
+    "technographic_stack": ["Shopify", "Klaviyo"],
+    "tribe": ["#cleanbeauty", "#skincarebrand"]
+  },
+  "intent": {
+    "signals": ["help_seeking_question", "budget_mention", "comparison_language"],
+    "intent_tier": "High"
+  },
+  "target": "dtc_brand",
+  "est_count": 400,
+  "createdAt": "2025-11-11T12:00:00Z",
+  "status": "idle",
+  "lastRunId": null
+}
+]
