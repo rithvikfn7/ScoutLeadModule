@@ -8,9 +8,10 @@ import { useDataCache } from '../contexts/DataCacheContext'
 const API_BASE = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3000'
 
 export default function LeadsetsDashboard() {
-  const [searchTerm] = useState('')
-  const [statusFilter] = useState('all')
-  const [sortKey] = useState('latest')
+  const [searchTerm, _setSearchTerm] = useState('')
+  const [statusFilter, _setStatusFilter] = useState('all')
+  const [sortKey, _setSortKey] = useState('latest')
+  // Note: Setters are currently unused but may be needed for future UI controls
   const [showSeedModal, setShowSeedModal] = useState(false)
   const [seedStatus, setSeedStatus] = useState({ loading: false, message: '' })
   const fileInputRef = useRef(null)

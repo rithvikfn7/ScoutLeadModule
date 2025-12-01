@@ -14,13 +14,13 @@ import BuyerItemSkeleton from '../components/BuyerItemSkeleton'
 import FN7FactRotator from '../components/FN7FactRotator'
 import { useLeadsetCache } from '../contexts/DataCacheContext'
 
-const statusClassMap = {
-  idle: 'status-pill status-idle',
-  running: 'status-pill status-running',
-  enriching: 'status-pill status-enriching',
-  failed: 'status-pill status-failed',
-  completed: 'status-pill status-completed',
-}
+// const statusClassMap = {
+//   idle: 'status-pill status-idle',
+//   running: 'status-pill status-running',
+//   enriching: 'status-pill status-enriching',
+//   failed: 'status-pill status-failed',
+//   completed: 'status-pill status-completed',
+// }
 
 const RECENCY_BUCKETS = [
   { key: '7d', label: 'Last 7 days', cutoff: 7 },
@@ -35,7 +35,7 @@ const DEFAULT_FILTERS = {
   hasContact: false,
 }
 
-const SNIPPET_PREVIEW_LENGTH = 200
+// const SNIPPET_PREVIEW_LENGTH = 200
 
 // Helper function to highlight important words in snippet
 const highlightSnippet = (text) => {
@@ -291,7 +291,7 @@ export default function LeadsetDetail() {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedSnippets, setExpandedSnippets] = useState(() => new Set())
   const [hoveredSnippet, setHoveredSnippet] = useState(null)
-  const [isRefreshing, setIsRefreshing] = useState(false)
+  // const [isRefreshing, setIsRefreshing] = useState(false)
 
   const PAGE_SIZE = 10
   const toastTimeoutRef = useRef(null)
@@ -706,22 +706,22 @@ export default function LeadsetDetail() {
     }
   }, [run, leadset, finalItems])
 
-  const overallStats = useMemo(() => {
-    const uniqueKeys = new Set()
-    finalItems.forEach((item) => {
-      const key = item.entity?.company?.toLowerCase() ||
-                  item.entity?.domain?.toLowerCase() ||
-                  item.sourceUrl?.toLowerCase() ||
-                  getItemId(item)
-      if (key) uniqueKeys.add(key)
-    })
+  // const overallStats = useMemo(() => {
+  //   const uniqueKeys = new Set()
+  //   finalItems.forEach((item) => {
+  //     const key = item.entity?.company?.toLowerCase() ||
+  //                 item.entity?.domain?.toLowerCase() ||
+  //                 item.sourceUrl?.toLowerCase() ||
+  //                 getItemId(item)
+  //     if (key) uniqueKeys.add(key)
+  //   })
 
-    return {
-      totalBuyers: finalItems.length,
-      totalEnriched: finalItems.filter(hasContactInfo).length,
-      totalUniqueBuyers: uniqueKeys.size,
-    }
-  }, [finalItems])
+  //   return {
+  //     totalBuyers: finalItems.length,
+  //     totalEnriched: finalItems.filter(hasContactInfo).length,
+  //     totalUniqueBuyers: uniqueKeys.size,
+  //   }
+  // }, [finalItems])
 
   const activeStatus = latestStats.status || 'idle'
   const normalizedStatus = activeStatus.toLowerCase()
@@ -996,12 +996,6 @@ export default function LeadsetDetail() {
               <span style={{ marginLeft: '4px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'linear-gradient(to right, #FF6C57, #B56AF1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                 <span className="material-icons" style={{ fontSize: '16px', animation: 'spin 1s linear infinite', background: 'linear-gradient(to right, #FF6C57, #B56AF1)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>sync</span>
                 Fetching new leads...
-              </span>
-            )}
-            {isRefreshing && (
-              <span style={{ marginLeft: '4px', color: '#2196f3', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <span className="material-icons" style={{ fontSize: '16px', animation: 'spin 1s linear infinite' }}>sync</span>
-                Refreshing...
               </span>
             )}
           </span>
