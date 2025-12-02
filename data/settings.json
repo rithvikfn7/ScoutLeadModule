@@ -1,0 +1,7 @@
+{
+  "id": "settings",
+  "scoringWeights": { "segment": 0.3, "intent": 0.3, "recency": 0.15, "platform": 0.1, "credibility": 0.1, "verification": 0.05 },
+  "limits": { "maxSelectionPerEnrichment": 500, "maxFileSize": 10485760 },
+  "export": { "csv": true, "storageBasePath": "exports/" }
+}
+

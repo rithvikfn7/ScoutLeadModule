@@ -1,0 +1,135 @@
+[
+  {
+    "id": "ls_dtc_us_beauty_cac_ugc11",
+    "name": "US DTC Beauty (0–$2M) — CAC & UGC asks",
+    "description": "DTC beauty brands discussing CAC reduction, UGC sourcing, and budget constraints.",
+    "prompt": "Find US DTC beauty brands under $2M revenue discussing CAC reduction, UGC briefs, influencer outreach, or creative testing problems on Shopify/Klaviyo. Prioritize founders/marketing leads asking for help, budgets, or X vs Y tool comparisons.",
+    "segment": {
+      "segment_archetype": "DTC brand (beauty)",
+      "geo_region": "US",
+      "firmographic_company_size": "0–2M",
+      "technographic_stack": ["Shopify", "Klaviyo"],
+      "tribe": ["#cleanbeauty", "#skincarebrand"]
+    },
+    "intent": {
+      "signals": ["help_seeking_question", "budget_mention", "comparison_language"],
+      "intent_tier": "High"
+    },
+    "target": "dtc_brand",
+    "est_count": 400,
+    "createdAt": "2025-11-11T12:00:00Z",
+    "status": "idle",
+    "lastRunId": null
+  },
+  {
+    "id": "ls_dtc_uk_supplements_adscale",
+    "name": "UK DTC Supplements (0–$2M) — scaling ads & ROAS",
+    "description": "Sleep/stress SKUs; brands seeking ROAS help or media buyers.",
+    "prompt": "Find UK DTC supplement brands (sleep/stress/magnesium/adaptogens) under $2M discussing ROAS, CPA, creator briefs, or PMAX performance; request for help or comparisons.",
+    "segment": {
+      "segment_archetype": "DTC brand (supplements)",
+      "geo_region": "UK",
+      "firmographic_company_size": "0–2M",
+      "technographic_stack": ["Shopify"],
+      "tribe": ["#wellness", "#ukdtc"]
+    },
+    "intent": {
+      "signals": ["help_seeking_question", "comparison_language", "churn_risk_complaint"],
+      "intent_tier": "Medium"
+    },
+    "target": "dtc_brand",
+    "est_count": 260,
+    "createdAt": "2025-11-11T12:00:00Z",
+    "status": "idle",
+    "lastRunId": null
+  },
+  {
+    "id": "ls_dtc_ca_wellness_attribution",
+    "name": "Canada DTC Wellness (0–$2M) — attribution help",
+    "description": "Brands asking about MER, tracking, creative testing.",
+    "prompt": "Find Canadian DTC wellness brands under $2M asking for attribution/MER help, pixel/tracking, creative testing frameworks; founders or growth managers posting in forums and groups.",
+    "segment": {
+      "segment_archetype": "DTC brand (wellness)",
+      "geo_region": "CA",
+      "firmographic_company_size": "0–2M",
+      "technographic_stack": ["Shopify"],
+      "tribe": ["#canadadirecttoconsumer"]
+    },
+    "intent": {
+      "signals": ["help_seeking_question", "social_proof_seek", "budget_mention"],
+      "intent_tier": "Medium"
+    },
+    "target": "dtc_brand",
+    "est_count": 180,
+    "createdAt": "2025-11-11T12:00:00Z",
+    "status": "idle",
+    "lastRunId": null
+  },
+  {
+    "id": "ls_saas_seed_martech_social_listening",
+    "name": "Seed SaaS founders (MarTech/AdTech) — social listening need",
+    "description": "Founders seeking listening + lead gen; comparing tools; asking for intros.",
+    "prompt": "Find seed-stage SaaS founders building MarTech/AdTech who ask for social listening or CAC insights; comparing tools; requesting intros or pilots; focus on US/EU startup communities.",
+    "segment": {
+      "segment_archetype": "SaaS founder (MarTech/AdTech)",
+      "geo_region": "US/EU",
+      "firmographic_company_size": "pre-seed/seed",
+      "technographic_stack": [],
+      "tribe": ["#buildinpublic", "#founder"]
+    },
+    "intent": {
+      "signals": ["help_seeking_question", "comparison_language", "urgency_timing"],
+      "intent_tier": "High"
+    },
+    "target": "saas_founder",
+    "est_count": 220,
+    "createdAt": "2025-11-11T12:00:00Z",
+    "status": "idle",
+    "lastRunId": null
+  },
+  {
+    "id": "ls_saas_plg_analytics_trial_to_paid",
+    "name": "PLG SaaS (analytics) — poor trial→paid",
+    "description": "Founders/PMs asking why PLG converts poorly; exploring AI agents.",
+    "prompt": "Find SaaS founders/leads in analytics/PLG discussing low trial-to-paid conversion, onboarding gaps, and need for audience research; interest in AI agents for GTM.",
+    "segment": {
+      "segment_archetype": "SaaS PLG (analytics)",
+      "geo_region": "Global (EN)",
+      "firmographic_company_size": "seed/series A",
+      "technographic_stack": [],
+      "tribe": ["#productled", "#revops"]
+    },
+    "intent": {
+      "signals": ["churn_risk_complaint", "help_seeking_question", "social_proof_seek"],
+      "intent_tier": "Medium"
+    },
+    "target": "saas_founder",
+    "est_count": 190,
+    "createdAt": "2025-11-11T12:00:00Z",
+    "status": "idle",
+    "lastRunId": null
+  },
+  {
+    "id": "ls_dtc_apac_beauty_sensitive_creators",
+    "name": "APAC DTC Beauty (sensitive skin) — creators in AU/NZ",
+    "description": "Brands asking for UGC & before/after in hot/humid climates.",
+    "prompt": "Find APAC DTC beauty brands (sensitive skin) in AU/NZ asking for creators or before/after proof; discussing budget tiers and UGC briefs; Shopify preferred.",
+    "segment": {
+      "segment_archetype": "DTC brand (beauty, sensitive skin)",
+      "geo_region": "AU/NZ",
+      "firmographic_company_size": "0–2M",
+      "technographic_stack": ["Shopify"],
+      "tribe": ["#ausbeauty", "#skincarebrand"]
+    },
+    "intent": {
+      "signals": ["social_proof_seek", "budget_mention", "help_seeking_question"],
+      "intent_tier": "High"
+    },
+    "target": "dtc_brand",
+    "est_count": 240,
+    "createdAt": "2025-11-11T12:00:00Z",
+    "status": "idle",
+    "lastRunId": null
+  }
+]
+
