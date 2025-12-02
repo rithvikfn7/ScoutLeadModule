@@ -3,29 +3,24 @@ const ModuleFederationPlugin = require('webpack/lib/container/ModuleFederationPl
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const path = require('path');
 
-const isDevelopment = process.env.REACT_APP_ENV === 'dev';
-const isProduction = process.env.REACT_APP_ENV === 'prod';
+const isDevelopment = process.env.NODE_ENV !== 'dev';
+const isProduction = process.env.NODE_ENV === 'prod';
 
 // Determine publicPath based on environment
-// Use environment variable if set, otherwise use relative path for deployments or localhost for dev server
+// Use environment variable if set, otherwise use relative path for production or localhost for dev server
 const getPublicPath = () => {
   // If PUBLIC_URL is set (e.g., from CI/CD), use it
   if (process.env.PUBLIC_URL) {
     return process.env.PUBLIC_URL.endsWith('/') ? process.env.PUBLIC_URL : `${process.env.PUBLIC_URL}/`;
   }
-  // Check if webpack-dev-server is actually running (actual local development)
-  // WEBPACK_SERVE is set to true by webpack-dev-server when running
-  const isLocalDevServer = process.env.WEBPACK_SERVE === 'true';
-
-  if (isLocalDevServer) {
-    // Only use localhost when actually running the local dev server
-    return 'http://localhost:3001/';
+  // For production builds, use empty string which makes webpack use __webpack_public_path__ if set
+  // If __webpack_public_path__ is not set, it will resolve relative to the script location
+  // The host app sets __webpack_public_path__ before loading remoteEntry.mjs
+  if (isDevelopment || isProduction) {
+    return '';
   }
-
-  // For all builds (production or dev deployment), use relative path './'
-  // This allows chunks to load relative to remoteEntry.mjs location
-  // When deployed to dev/prod, chunks will resolve from the host URL where remoteEntry.mjs is served
-  return './';
+  // For local development server, use localhost
+  return 'http://localhost:3001/';
 };
 
 module.exports = {
