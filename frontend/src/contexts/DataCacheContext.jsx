@@ -1,13 +1,16 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import sdk from '../sdk'
+import { useSessionId } from '../hooks/useSessionId'
 
 const DataCacheContext = createContext(null)
 
 /**
  * DataCacheContext - Listens to aggregated leadset feed document
  * Backend writes to `leadsetFeed/global` whenever data changes.
+ * Filters leadsets by sessionId if provided.
  */
 export function DataCacheProvider({ children }) {
+  const { sessionId } = useSessionId()
   const [feedData, setFeedData] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -15,21 +18,22 @@ export function DataCacheProvider({ children }) {
   const [refreshCounter, setRefreshCounter] = useState(0)
   const lastUpdateRef = useRef(null)
 
-  const applyFeedData = useCallback((data) => {
+  const applyFeedData = useCallback((data, force = false) => {
     if (!data) {
       return
     }
-    // Avoid duplicate updates with same timestamp
-    if (lastUpdateRef.current === data.updatedAt) {
+    // Avoid duplicate updates with same timestamp (unless forced)
+    if (!force && lastUpdateRef.current === data.updatedAt) {
       console.log('[Data] Skipping duplicate update with same timestamp')
       return
     }
     lastUpdateRef.current = data.updatedAt
-    console.log('[Data] Applying feed data update:', data.updatedAt)
+    console.log('[Data] Applying feed data update:', data.updatedAt, 'leadsets:', data.leadsets?.length)
     setFeedData(data)
     setIsInitialized(true)
     setIsLoading(false)
     setError(null)
+    setRefreshCounter(c => c + 1) // Force re-render on every update
   }, [])
 
   const refreshCache = useCallback(async (force = false) => {
@@ -46,12 +50,7 @@ export function DataCacheProvider({ children }) {
           leadsetCount: snapshot?.leadsets?.length,
           leadsetStatuses: snapshot?.leadsets?.map(ls => ({ id: ls.id?.slice(-6), status: ls.status })),
         })
-        // Force apply by resetting ref if forced
-        if (force) {
-          lastUpdateRef.current = null
-        }
-        applyFeedData(snapshot)
-        setRefreshCounter(c => c + 1)
+        applyFeedData(snapshot, force)
       } else {
         console.log('[Data] No feed data found')
         setFeedData(null)
@@ -95,9 +94,20 @@ export function DataCacheProvider({ children }) {
   }, [applyFeedData, refreshCache])
 
   const value = useMemo(() => {
-    const leadsets = feedData?.leadsets || []
+    let leadsets = feedData?.leadsets || []
     const settings = feedData?.settings || { cost: { perContact: 2 } }
-    const leadsetDetails = feedData?.leadsetDetails || {}
+    let leadsetDetails = feedData?.leadsetDetails || {}
+
+    // Filter by sessionId if provided
+    if (sessionId) {
+      leadsets = leadsets.filter(leadset => leadset.sessionId === sessionId)
+      // Also filter leadsetDetails to only include matching leadsets
+      const filteredLeadsetIds = new Set(leadsets.map(ls => ls.id))
+      leadsetDetails = Object.fromEntries(
+        Object.entries(leadsetDetails).filter(([id]) => filteredLeadsetIds.has(id))
+      )
+      console.log(`[Data] Filtered to ${leadsets.length} leadsets for sessionId: ${sessionId}`)
+    }
 
     return {
       leadsets,
@@ -109,8 +119,9 @@ export function DataCacheProvider({ children }) {
       isInitialized,
       refreshCache,
       refreshCounter, // Include counter to force re-renders
+      sessionId, // Expose sessionId for UI
     }
-  }, [feedData, isLoading, error, isInitialized, refreshCache, refreshCounter])
+  }, [feedData, isLoading, error, isInitialized, refreshCache, refreshCounter, sessionId])
 
   return (
     <DataCacheContext.Provider value={value}>

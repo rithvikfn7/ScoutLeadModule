@@ -150,7 +150,58 @@ const ENRICHMENT_FIELDS = {
   audienceOverlapScore: {
     label: 'Audience Overlap Score',
     format: 'text',
-    instructions: 'Estimate the audience overlap potential on a scale of 1-10, where 10 means highly overlapping target audiences. Return just the number (e.g. "7") with optional one-sentence justification.',
+    instructions: 'Estimate the audience overlap potential on a scale of 1-10, where 10 means highly overlapping target audiences. Return just the number (e.g. "7").',
+    defaultCost: 0.25,
+  },
+  audienceOverlapReason: {
+    label: 'Audience Overlap Reason',
+    format: 'text',
+    instructions: 'Explain in one concise sentence (max 20 words) why you assigned the audience overlap score. Reference specific audience characteristics.',
+    defaultCost: 0.25,
+  },
+  
+  // === INFLUENCER/CREATOR FIELDS ===
+  estimatedReachBand: {
+    label: 'Estimated Reach',
+    format: 'text',
+    instructions: 'Estimate the social media reach/following range. Return exactly one of: "Nano (1K-10K)", "Micro (10K-50K)", "Mid (50K-500K)", "Macro (500K-1M)", "Mega (1M+)", or "Unknown".',
+    defaultCost: 0.25,
+  },
+  
+  // === ROLE/SENIORITY FIELDS ===
+  roleSeniorityBand: {
+    label: 'Role Seniority',
+    format: 'text',
+    instructions: 'Classify the seniority level. Return exactly one of: "C-Level", "VP/Director", "Manager", "Senior IC", "IC", or "Unknown".',
+    defaultCost: 0.25,
+  },
+  
+  // === INVESTOR FIELDS ===
+  investorIntentLevel: {
+    label: 'Investor Intent',
+    format: 'options',
+    options: [{ label: 'High' }, { label: 'Medium' }, { label: 'Low' }],
+    instructions: 'Assess how likely this investor is interested in this sector. Return exactly "High", "Medium", or "Low". High = actively investing in similar companies; Medium = thesis aligned; Low = no clear signals.',
+    defaultCost: 0.5,
+  },
+  investorIntentReason: {
+    label: 'Investor Intent Reason',
+    format: 'text',
+    instructions: 'Explain in one concise sentence (max 20 words) why you assigned the investor intent level. Reference portfolio or thesis signals.',
+    defaultCost: 0.25,
+  },
+  
+  // === CATEGORY FIT FIELDS ===
+  categoryFitScore: {
+    label: 'Category Fit Score',
+    format: 'text',
+    instructions: 'Rate how well this lead fits the target category on a scale of 1-10. Return just the number (e.g. "8").',
+    defaultCost: 0.25,
+  },
+  categoryFitReason: {
+    label: 'Category Fit Reason',
+    format: 'text',
+    instructions: 'Explain in one concise sentence (max 20 words) why you assigned the category fit score. Reference specific category alignment signals.',
     defaultCost: 0.25,
   },
 }
@@ -164,19 +215,41 @@ Object.entries(ENRICHMENT_FIELDS).forEach(([key, value]) => {
 const DEFAULT_ENRICHMENT_FIELDS = ['email', 'phone']
 
 const LEADSET_ENRICHMENT_FIELD_MAP = {
+  // Contact fields
   contact_email: 'email',
   contact_phone: 'phone',
-  buying_intent_level: 'buyingIntent',
-  company_size_band: 'employeeCount',
-  has_linkedin_messaging: 'linkedinUrl',  // Now fetches actual LinkedIn URL
+  has_linkedin_messaging: 'linkedinUrl',
   linkedin_url: 'linkedinUrl',
   primary_contact_channel: 'primaryContactChannel',
+  
+  // Classification fields
   lead_type: 'leadType',
   geo_location: 'geoLocation',
+  company_size_band: 'employeeCount',
+  
+  // Buying intent fields
+  buying_intent_level: 'buyingIntent',
   buying_intent_reason: 'buyingIntentReason',
+  
+  // Partnership intent fields
   partnership_intent_level: 'partnershipIntentLevel',
   partnership_intent_reason: 'partnershipIntentReason',
+  
+  // Audience/influencer fields
   audience_overlap_score: 'audienceOverlapScore',
+  audience_overlap_reason: 'audienceOverlapReason',
+  estimated_reach_band: 'estimatedReachBand',
+  
+  // Role/seniority fields
+  role_seniority_band: 'roleSeniorityBand',
+  
+  // Investor fields
+  investor_intent_level: 'investorIntentLevel',
+  investor_intent_reason: 'investorIntentReason',
+  
+  // Category fit fields
+  category_fit_score: 'categoryFitScore',
+  category_fit_reason: 'categoryFitReason',
 }
 
 function getAllowedEnrichmentFieldsForLeadset(leadset = {}) {
@@ -1263,9 +1336,35 @@ app.get('/leadset-feed', async (req, res, next) => {
 /**
  * Seed leadsets and settings from JSON upload
  * Used to populate Firebase with initial data
+ * 
+ * Supports multiple formats:
+ * 1. Array of leadsets: [ { id, name, ... }, ... ]
+ * 2. Collection object: { session_id, lead_sets: [ ... ], ... }
+ * 3. New standard format: { leadset_documents: [ ... ] }
+ * 4. Legacy format: { leadsets: [ ... ] }
  */
 app.post('/seed', async (req, res, next) => {
-  const { leadsets = [], settings = null, clearExisting = false } = req.body
+  let { leadsets = [], settings = null, clearExisting = false } = req.body
+  let collectionSessionId = null
+  
+  // Handle new standard format: { leadset_documents: [...] }
+  if (Array.isArray(req.body.leadset_documents)) {
+    leadsets = req.body.leadset_documents
+    // Extract sessionId from first leadset if available
+    collectionSessionId = leadsets[0]?.session_id || null
+    console.log(`[Seed] Detected leadset_documents format with ${leadsets.length} leadsets`)
+  }
+  // Handle collection format (brain-style): { session_id, lead_sets: [...] }
+  else if (req.body.session_id && Array.isArray(req.body.lead_sets)) {
+    collectionSessionId = req.body.session_id
+    leadsets = req.body.lead_sets
+    console.log(`[Seed] Detected collection format with session_id: ${collectionSessionId}`)
+  }
+  // Handle legacy format: { leadsets: [...] }
+  else if (Array.isArray(req.body.leadsets)) {
+    leadsets = req.body.leadsets
+  }
+  // If leadsets is already an array (direct array upload), use it as-is
   
   try {
     let seededLeadsets = 0
@@ -1285,18 +1384,26 @@ app.post('/seed', async (req, res, next) => {
     // Seed leadsets
     for (const leadset of leadsets) {
       if (!leadset.id) {
-        leadset.id = `ls_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+        // Use doc_id if available (from brain format), otherwise generate
+        leadset.id = leadset.doc_id || `ls_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
       }
+      
+      // Extract sessionId: prioritize from leadset, then collection, then request body
+      const sessionId = leadset.sessionId || leadset.session_id || collectionSessionId || req.body.sessionId
+      
       const leadsetDoc = {
         ...leadset,
+        id: leadset.id, // Ensure id is set
+        sessionId: sessionId, // Add sessionId to each leadset
         status: leadset.status || 'idle',
         createdAt: leadset.createdAt || new Date().toISOString(),
       }
+      
       await sdk.createFirebaseData('leadsets', leadset.id, leadsetDoc).catch(() =>
         sdk.updateFirebaseData('leadsets', leadset.id, leadsetDoc)
       )
       seededLeadsets++
-      console.log(`[Seed] Created leadset: ${leadset.id} - ${leadset.name}`)
+      console.log(`[Seed] Created leadset: ${leadset.id} - ${leadset.name} (sessionId: ${sessionId || 'none'})`)
     }
     
     // Seed settings
@@ -1315,7 +1422,8 @@ app.post('/seed', async (req, res, next) => {
       success: true,
       seededLeadsets,
       seededSettings,
-      message: `Seeded ${seededLeadsets} leadsets${seededSettings ? ' and settings' : ''}`,
+      sessionId: collectionSessionId || (leadsets[0]?.sessionId || leadsets[0]?.session_id) || null,
+      message: `Seeded ${seededLeadsets} leadsets${seededSettings ? ' and settings' : ''}${collectionSessionId ? ` with sessionId: ${collectionSessionId}` : ''}`,
     })
   } catch (error) {
     console.error('[Seed] Error:', error)
@@ -2098,9 +2206,7 @@ app.get('/leadsets/:leadsetId/runs/:runId/webset', async (req, res, next) => {
       }
 
       await updateDocStatus(['runs', 'items', 'leadsets'], { leadsetId, runId })
-    }
-
-    if (dataChanged) {
+      // Always rebuild feed when data changes
       await rebuildLeadsetFeed().catch((err) => console.warn('[Leadset Feed] Webset rebuild skipped:', err.message))
     }
 

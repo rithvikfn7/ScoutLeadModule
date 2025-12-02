@@ -8,8 +8,8 @@ import './App.css'
 function App() {
   return (
     <ErrorBoundary>
-      <DataCacheProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <DataCacheProvider>
           <div className="app-shell">
             <Routes>
               <Route path="/" element={<LeadsetsDashboard />} />
@@ -17,8 +17,8 @@ function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
-        </BrowserRouter>
-      </DataCacheProvider>
+        </DataCacheProvider>
+      </BrowserRouter>
     </ErrorBoundary>
   )
 }

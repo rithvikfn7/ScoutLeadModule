@@ -14,14 +14,23 @@ async function main() {
   const settingsPath = path.resolve(__dirname, '../../data/settings.json');
 
   const rawLeadsets = JSON.parse(fs.readFileSync(leadsetsPath, 'utf-8'));
-  // Support both:
+  // Support multiple formats:
   //  - an array of leadsets: [ { id, ... }, ... ]
-  //  - a brain-style object: { lead_sets: [ { doc_id, ... }, ... ], ... }
-  const leadsets = Array.isArray(rawLeadsets)
+  //  - a collection object: { session_id, lead_sets: [ { doc_id, ... }, ... ], ... }
+  //  - new standard format: { leadset_documents: [ ... ] }
+  //  - legacy format: { leadsets: [ ... ] }
+  let leadsets = Array.isArray(rawLeadsets)
     ? rawLeadsets
+    : Array.isArray(rawLeadsets.leadset_documents)
+    ? rawLeadsets.leadset_documents
     : Array.isArray(rawLeadsets.lead_sets)
     ? rawLeadsets.lead_sets
+    : Array.isArray(rawLeadsets.leadsets)
+    ? rawLeadsets.leadsets
     : [];
+  
+  // Extract sessionId from collection or first leadset document
+  const collectionSessionId = rawLeadsets.session_id || rawLeadsets.sessionId || leadsets[0]?.session_id || null;
 
   const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
 
@@ -33,7 +42,13 @@ async function main() {
           `Leadset missing id/doc_id field: ${JSON.stringify(leadset)}`
         );
       }
-      return sdk.createFirebaseData('leadsets', id, leadset);
+      // Add sessionId to each leadset if available
+      const leadsetDoc = {
+        ...leadset,
+        id,
+        sessionId: leadset.sessionId || leadset.session_id || collectionSessionId || null,
+      };
+      return sdk.createFirebaseData('leadsets', id, leadsetDoc);
     })
   );
   await sdk.createFirebaseData('settings', settings.id, settings);

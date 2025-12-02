@@ -179,23 +179,102 @@ const BASE_FIELD_OPTIONS = [
     defaultCost: 0.25,
     category: 'intent',
   },
+  {
+    key: 'audienceOverlapReason',
+    label: 'Audience Overlap Reason',
+    description: 'Explanation for the audience overlap score.',
+    defaultCost: 0.25,
+    category: 'intent',
+  },
+  
+  // === INFLUENCER/CREATOR FIELDS ===
+  {
+    key: 'estimatedReachBand',
+    label: 'Estimated Reach',
+    description: 'Social media reach range (Nano, Micro, Mid, Macro, Mega).',
+    defaultCost: 0.25,
+    category: 'influencer',
+  },
+  
+  // === ROLE/SENIORITY FIELDS ===
+  {
+    key: 'roleSeniorityBand',
+    label: 'Role Seniority',
+    description: 'Seniority level (C-Level, VP/Director, Manager, etc.).',
+    defaultCost: 0.25,
+    category: 'classification',
+  },
+  
+  // === INVESTOR FIELDS ===
+  {
+    key: 'investorIntentLevel',
+    label: 'Investor Intent',
+    description: 'High / Medium / Low interest in investing.',
+    defaultCost: 0.5,
+    category: 'investor',
+  },
+  {
+    key: 'investorIntentReason',
+    label: 'Investor Intent Reason',
+    description: 'Explanation for the investor intent assessment.',
+    defaultCost: 0.25,
+    category: 'investor',
+  },
+  
+  // === CATEGORY FIT FIELDS ===
+  {
+    key: 'categoryFitScore',
+    label: 'Category Fit Score',
+    description: 'Score 1-10 indicating how well lead fits target category.',
+    defaultCost: 0.25,
+    category: 'fit',
+  },
+  {
+    key: 'categoryFitReason',
+    label: 'Category Fit Reason',
+    description: 'Explanation for the category fit score.',
+    defaultCost: 0.25,
+    category: 'fit',
+  },
 ]
 
 // Map backend/brain enrichment field names -> UI/internal keys
 const LEADSET_ENRICHMENT_FIELD_MAP = {
+  // Contact fields
   contact_email: 'email',
   contact_phone: 'phone',
-  buying_intent_level: 'buyingIntent',
-  company_size_band: 'employeeCount',
-  has_linkedin_messaging: 'linkedinUrl',  // Now fetches actual LinkedIn URL
+  has_linkedin_messaging: 'linkedinUrl',
   linkedin_url: 'linkedinUrl',
   primary_contact_channel: 'primaryContactChannel',
+  
+  // Classification fields
   lead_type: 'leadType',
   geo_location: 'geoLocation',
+  company_size_band: 'employeeCount',
+  
+  // Buying intent fields
+  buying_intent_level: 'buyingIntent',
   buying_intent_reason: 'buyingIntentReason',
+  
+  // Partnership intent fields
   partnership_intent_level: 'partnershipIntentLevel',
   partnership_intent_reason: 'partnershipIntentReason',
+  
+  // Audience/influencer fields
   audience_overlap_score: 'audienceOverlapScore',
+  audience_overlap_reason: 'audienceOverlapReason',
+  estimated_reach_band: 'estimatedReachBand',
+  
+  // Role/seniority fields
+  role_seniority_band: 'roleSeniorityBand',
+  
+  // Investor fields
+  investor_intent_level: 'investorIntentLevel',
+  investor_intent_reason: 'investorIntentReason',
+  
+  // Category fit fields
+  category_fit_score: 'categoryFitScore',
+  category_fit_reason: 'categoryFitReason',
 }
 
 const getItemId = (item) => item.itemId || item.id
@@ -209,7 +288,9 @@ const fieldValueExists = (enrichment = {}, fieldKey) => {
 }
 
 function formatInsightValue(value, maxLength = 180) {
-  if (!value) return '—'
+  if (!value || value === '' || value === null || value === undefined) {
+    return '—'
+  }
   if (typeof value !== 'string') {
     return String(value)
   }
@@ -219,30 +300,62 @@ function formatInsightValue(value, maxLength = 180) {
   return value
 }
 
+/**
+ * Check if a specific field was enriched for an item
+ * Only returns true if the field key exists in the enrichment object
+ * (meaning it was requested and processed)
+ */
+function wasFieldEnriched(item, fieldKey) {
+  if (!item?.enrichment) return false
+  // Check if the field key exists in the enrichment object (not just if it has a value)
+  return fieldKey in item.enrichment
+}
+
 function capitalizeFirst(value) {
   if (!value || typeof value !== 'string') return value
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 /**
- * Determine if a leadset is a "Buyer" type or "Partner" type
- * Buyer types: retailer, distributor, platform, investor
- * Partner types: other_b2b, influencer, expert, creator
+ * Determine if a leadset is a "Buyer", "Partner", "Influencer", or "Investor" type
+ * Uses intent_type field first, then falls back to target field
+ * 
+ * intent_type values: buyer, partner, influencer, investor
+ * target values: retailer, distributor, platform, investor, expert, creator, corporate_buyer, agency
  */
-const BUYER_TARGETS = ['retailer', 'distributor', 'platform', 'investor']
-const PARTNER_TARGETS = ['other_b2b', 'influencer', 'expert', 'creator']
+const BUYER_TARGETS = ['retailer', 'distributor', 'platform', 'corporate_buyer']
+const PARTNER_TARGETS = ['agency', 'partner']
+const INFLUENCER_TARGETS = ['influencer', 'expert', 'creator']
+const INVESTOR_TARGETS = ['investor']
 
 function getLeadsetType(leadset) {
+  // First check intent_type field (new standardized format)
+  const intentType = (leadset?.intent_type || '').toLowerCase()
+  if (intentType === 'buyer') return 'buyer'
+  if (intentType === 'partner') return 'partner'
+  if (intentType === 'influencer') return 'influencer'
+  if (intentType === 'investor') return 'investor'
+  
+  // Fall back to target field
   const target = (leadset?.target || '').toLowerCase()
   if (BUYER_TARGETS.includes(target)) return 'buyer'
+  if (INVESTOR_TARGETS.includes(target)) return 'investor'
+  if (INFLUENCER_TARGETS.includes(target)) return 'influencer'
   if (PARTNER_TARGETS.includes(target)) return 'partner'
-  // Check enrichment_fields as fallback
+  
+  // Check enrichment_fields as final fallback
   const fields = leadset?.enrichment_fields || []
   const hasBuyingIntent = fields.includes('buying_intent_level')
   const hasPartnershipIntent = fields.includes('partnership_intent_level')
+  const hasInvestorIntent = fields.includes('investor_intent_level')
+  const hasAudienceOverlap = fields.includes('audience_overlap_score')
+  
+  if (hasInvestorIntent) return 'investor'
+  if (hasAudienceOverlap && !hasBuyingIntent) return 'influencer'
   if (hasBuyingIntent && !hasPartnershipIntent) return 'buyer'
   if (hasPartnershipIntent && !hasBuyingIntent) return 'partner'
-  // Default: if has both or neither, return 'mixed'
+  
+  // Default: mixed
   return 'mixed'
 }
 
@@ -342,10 +455,13 @@ export default function LeadsetDetail() {
   const derivedWebsetStatus = websetData?.status?.toLowerCase() || ''
   const isRunActive = ['running', 'processing', 'pending'].includes(derivedWebsetStatus)
 
+  // Simplified notification - just log to console
   const showToast = useCallback((message, type = 'info') => {
-    setToast({ message, type })
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
-    toastTimeoutRef.current = setTimeout(() => setToast(null), 5000)
+    if (type === 'error') {
+      console.error('[LeadsetDetail]', message)
+    } else {
+      console.log('[LeadsetDetail]', message)
+    }
   }, [])
 
   const toggleFieldSelection = useCallback((fieldKey) => {
@@ -407,6 +523,9 @@ export default function LeadsetDetail() {
           clearInterval(websetPollIntervalRef.current)
           websetPollIntervalRef.current = null
           // Refresh cache when run completes to get items from Firebase
+          refreshLeadset()
+        } else if (isRunning) {
+          // Also refresh cache periodically during active runs to sync status
           refreshLeadset()
         }
       } catch (err) {
@@ -818,14 +937,6 @@ export default function LeadsetDetail() {
         <div style={{ marginBottom: '24px' }}>
           <FN7FactRotator interval={4000} />
         </div>
-        <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-          <div style={{ fontSize: '16px', marginBottom: '8px', fontWeight: 500 }}>
-            🔍 Loading leadset details...
-          </div>
-          <div style={{ fontSize: '13px', opacity: 0.7 }}>
-            This only happens on first visit. Subsequent loads are instant thanks to our smart caching!
-          </div>
-        </div>
         <div className="table-shell">
           <div className="table-scroll">
             <table>
@@ -898,51 +1009,61 @@ export default function LeadsetDetail() {
         </div>
       </div>
 
-      {toast && (
-        <div style={{ padding: '1px', background: 'linear-gradient(to right, #FF6C57, #B56AF1)', borderRadius: '8px', marginBottom: '16px' }}>
-          <div style={{ position: 'relative', background: 'white', borderRadius: '7px' }}>
-            <div style={{ position: 'absolute', inset: 0, borderRadius: '7px', background: 'linear-gradient(to right, #FF6C57, #B56AF1)', opacity: 0.05, pointerEvents: 'none' }} />
-            <div className={`toast toast-${toast.type}`} style={{ position: 'relative', zIndex: 1, background: 'transparent', marginBottom: 0 }}>
-              <span>{toast.message}</span>
-              <button type="button" onClick={() => setToast(null)} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}>
-                ✕
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {error && (
         <div className="status-pill status-failed" style={{ marginBottom: '12px', padding: '12px 16px' }}>
           Error: {error}
         </div>
       )}
 
-      {isEnrichmentRequesting && (
-        <div className="status-pill" style={{ marginBottom: '12px', background: 'linear-gradient(to right, rgba(255, 108, 87, 0.1), rgba(181, 106, 241, 0.1))', color: '#000000', padding: '12px 16px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span className="material-icons" style={{ animation: 'spin 1s linear infinite' }}>sync</span>
-          <span>Enriching contact details... This may take a few moments.</span>
-        </div>
-      )}
-
-      {websetData && (
-        <div className="status-pill" style={{
-          marginBottom: '12px',
-          background: 'linear-gradient(to right, rgba(255, 108, 87, 0.2), rgba(181, 106, 241, 0.2))',
-          color: '#000000',
-          padding: '12px 16px',
-          borderRadius: '8px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          border: '1px solid #d0d0d0',
+      {/* Always show status bar */}
+      <div className="status-pill" style={{
+        marginBottom: '12px',
+        background: ['running', 'processing', 'pending'].includes(finalWebsetStatus)
+          ? 'linear-gradient(to right, rgba(255, 108, 87, 0.2), rgba(181, 106, 241, 0.2))'
+          : finalWebsetStatus === 'completed' || finalWebsetStatus === 'idle'
+          ? 'rgba(34, 197, 94, 0.1)'
+          : finalWebsetStatus === 'failed'
+          ? 'rgba(239, 68, 68, 0.1)'
+          : 'rgba(0, 0, 0, 0.05)',
+        color: '#000000',
+        padding: '12px 16px',
+        borderRadius: '8px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        border: ['running', 'processing', 'pending'].includes(finalWebsetStatus)
+          ? '1px solid rgba(181, 106, 241, 0.3)'
+          : finalWebsetStatus === 'completed' || finalWebsetStatus === 'idle'
+          ? '1px solid rgba(34, 197, 94, 0.3)'
+          : finalWebsetStatus === 'failed'
+          ? '1px solid rgba(239, 68, 68, 0.3)'
+          : '1px solid #e0e0e0',
+      }}>
+        <span className="material-icons" style={{ 
+          fontSize: '20px',
+          color: ['running', 'processing', 'pending'].includes(finalWebsetStatus) ? '#B56AF1' 
+               : finalWebsetStatus === 'completed' || finalWebsetStatus === 'idle' ? '#22c55e'
+               : finalWebsetStatus === 'failed' ? '#ef4444'
+               : '#6b7280',
+          animation: ['running', 'processing', 'pending'].includes(finalWebsetStatus) ? 'spin 1s linear infinite' : 'none'
         }}>
-          <div style={{ flex: 1 }}>
-            <strong>Status:</strong> {statusDisplayText}
-            {['running', 'processing'].includes(finalWebsetStatus) && ' (updating every 3s...)'}
-          </div>
+          {['running', 'processing', 'pending'].includes(finalWebsetStatus) ? 'sync' 
+           : finalWebsetStatus === 'completed' || finalWebsetStatus === 'idle' ? 'check_circle'
+           : finalWebsetStatus === 'failed' ? 'error'
+           : 'info'}
+        </span>
+        <div style={{ flex: 1 }}>
+          <strong>Status:</strong> {statusDisplayText}
+          {['running', 'processing', 'pending'].includes(finalWebsetStatus) && ' (updating every 3s...)'}
+          {(finalWebsetStatus === 'completed' || finalWebsetStatus === 'idle') && run?.id && ` • ${filteredItems.length} leads found`}
+          {finalWebsetStatus === 'idle' && !run?.id && ' • No run started yet'}
         </div>
-      )}
+        {run?.id && (
+          <span style={{ fontSize: '12px', color: '#6b7280' }}>
+            Run: {run.id.slice(-8)}
+          </span>
+        )}
+      </div>
 
       <div style={{ marginBottom: '0px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 className="detail-title">{leadset.name}</h2>
@@ -1194,159 +1315,212 @@ export default function LeadsetDetail() {
 
                       {/* Email */}
                       <td style={{ borderRight: '1px solid #e0e0e0' }}>
-                        {item.enrichment?.email && item.enrichment.email !== 'Not found' ? (
-                          <a href={`mailto:${item.enrichment.email}`} style={{ color: '#1976d2', fontSize: '12px', wordBreak: 'break-all' }}>
-                            {item.enrichment.email}
-                          </a>
-                        ) : item.enrichment?.email === 'Not found' ? (
-                          <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
-                        ) : (
-                          <span style={{ color: '#98a2b3' }}>—</span>
-                        )}
+                        {(() => {
+                          const val = item.enrichment?.email
+                          const fieldWasEnriched = wasFieldEnriched(item, 'email')
+                          if (val && val !== 'Not found') {
+                            return (
+                              <a href={`mailto:${val}`} style={{ color: '#1976d2', fontSize: '12px', wordBreak: 'break-all' }}>
+                                {val}
+                              </a>
+                            )
+                          }
+                          if (fieldWasEnriched || val === 'Not found') {
+                            return <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                          }
+                          return <span style={{ color: '#98a2b3' }}>—</span>
+                        })()}
                       </td>
 
                       {/* Phone */}
                       <td style={{ borderRight: '1px solid #e0e0e0' }}>
-                        {item.enrichment?.phone && item.enrichment.phone !== 'Not found' ? (
-                          <a href={`tel:${item.enrichment.phone}`} style={{ color: '#1976d2', fontSize: '12px' }}>
-                            {item.enrichment.phone}
-                          </a>
-                        ) : item.enrichment?.phone === 'Not found' ? (
-                          <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
-                        ) : (
-                          <span style={{ color: '#98a2b3' }}>—</span>
-                        )}
+                        {(() => {
+                          const val = item.enrichment?.phone
+                          const fieldWasEnriched = wasFieldEnriched(item, 'phone')
+                          if (val && val !== 'Not found') {
+                            return (
+                              <a href={`tel:${val}`} style={{ color: '#1976d2', fontSize: '12px' }}>
+                                {val}
+                              </a>
+                            )
+                          }
+                          if (fieldWasEnriched || val === 'Not found') {
+                            return <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                          }
+                          return <span style={{ color: '#98a2b3' }}>—</span>
+                        })()}
                       </td>
 
                       {/* LinkedIn URL */}
                       <td style={{ borderRight: '1px solid #e0e0e0' }}>
-                        {item.enrichment?.linkedinUrl && item.enrichment.linkedinUrl !== 'Not found' ? (
-                          <a 
-                            href={item.enrichment.linkedinUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            style={{ color: '#0077b5', fontSize: '12px' }}
-                          >
-                            View ↗
-                          </a>
-                        ) : item.enrichment?.linkedinUrl === 'Not found' ? (
-                          <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
-                        ) : (
-                          <span style={{ color: '#98a2b3' }}>—</span>
-                        )}
+                        {(() => {
+                          const val = item.enrichment?.linkedinUrl
+                          const fieldWasEnriched = wasFieldEnriched(item, 'linkedinUrl')
+                          if (val && val !== 'Not found' && val.trim()) {
+                            return (
+                              <a 
+                                href={val} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                style={{ color: '#0077b5', fontSize: '12px' }}
+                              >
+                                View ↗
+                              </a>
+                            )
+                          }
+                          if (fieldWasEnriched || val === 'Not found') {
+                            return <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                          }
+                          return <span style={{ color: '#98a2b3' }}>—</span>
+                        })()}
                       </td>
 
                       {/* Best Contact Channel */}
                       <td style={{ borderRight: '1px solid #e0e0e0' }}>
-                        <span style={{ 
-                          color: item.enrichment?.primaryContactChannel ? '#101828' : '#98a2b3',
-                          fontSize: '12px'
-                        }}>
-                          {formatInsightValue(item.enrichment?.primaryContactChannel, 40)}
-                        </span>
+                        {(() => {
+                          const val = item.enrichment?.primaryContactChannel
+                          const fieldWasEnriched = wasFieldEnriched(item, 'primaryContactChannel')
+                          if (val && val !== 'Not found') {
+                            return <span style={{ color: '#101828', fontSize: '12px' }}>{val}</span>
+                          }
+                          if (fieldWasEnriched || val === 'Not found') {
+                            return <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                          }
+                          return <span style={{ color: '#98a2b3' }}>—</span>
+                        })()}
                       </td>
 
                       {/* Lead Type */}
                       <td style={{ borderRight: '1px solid #e0e0e0' }}>
-                        <span style={{ 
-                          color: item.enrichment?.leadType ? '#101828' : '#98a2b3',
-                          fontSize: '12px',
-                          fontWeight: item.enrichment?.leadType ? 500 : 400
-                        }}>
-                          {formatInsightValue(item.enrichment?.leadType, 40)}
-                        </span>
+                        {(() => {
+                          const val = item.enrichment?.leadType
+                          const fieldWasEnriched = wasFieldEnriched(item, 'leadType')
+                          if (val && val !== 'Not found') {
+                            return <span style={{ color: '#101828', fontSize: '12px', fontWeight: 500 }}>{val}</span>
+                          }
+                          if (fieldWasEnriched || val === 'Not found') {
+                            return <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                          }
+                          return <span style={{ color: '#98a2b3' }}>—</span>
+                        })()}
                       </td>
 
                       {/* Location */}
                       <td style={{ borderRight: '1px solid #e0e0e0' }}>
-                        <span style={{ 
-                          color: item.enrichment?.geoLocation ? '#101828' : '#98a2b3',
-                          fontSize: '12px'
-                        }}>
-                          {formatInsightValue(item.enrichment?.geoLocation, 50)}
-                        </span>
+                        {(() => {
+                          const val = item.enrichment?.geoLocation
+                          const fieldWasEnriched = wasFieldEnriched(item, 'geoLocation')
+                          if (val && val !== 'Not found') {
+                            return <span style={{ color: '#101828', fontSize: '12px' }}>{val}</span>
+                          }
+                          if (fieldWasEnriched || val === 'Not found') {
+                            return <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                          }
+                          return <span style={{ color: '#98a2b3' }}>—</span>
+                        })()}
                       </td>
 
                       {/* Buyer-specific: Company Size */}
                       {isBuyer && (
                         <td style={{ borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>
-                          <span style={{ 
-                            color: item.enrichment?.employeeCount ? '#101828' : '#98a2b3',
-                            fontSize: '12px'
-                          }}>
-                            {formatInsightValue(item.enrichment?.employeeCount)}
-                          </span>
+                          {(() => {
+                            const val = item.enrichment?.employeeCount
+                            const fieldWasEnriched = wasFieldEnriched(item, 'employeeCount')
+                            if (val && val !== 'Not found') {
+                              return <span style={{ color: '#101828', fontSize: '12px' }}>{val}</span>
+                            }
+                            if (fieldWasEnriched || val === 'Not found') {
+                              return <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                            }
+                            return <span style={{ color: '#98a2b3' }}>—</span>
+                          })()}
                         </td>
                       )}
 
                       {/* Buyer-specific: Buying Intent */}
                       {isBuyer && (
                         <td style={{ borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>
-                          <span style={{ 
-                            color: item.enrichment?.buyingIntent === 'high' ? '#16a34a' 
-                                 : item.enrichment?.buyingIntent === 'medium' ? '#ca8a04'
-                                 : item.enrichment?.buyingIntent === 'low' ? '#dc2626'
-                                 : '#98a2b3',
-                            fontWeight: item.enrichment?.buyingIntent ? 600 : 400,
-                            fontSize: '12px'
-                          }}>
-                            {capitalizeFirst(formatInsightValue(item.enrichment?.buyingIntent))}
-                          </span>
+                          {(() => {
+                            const val = item.enrichment?.buyingIntent?.toLowerCase()
+                            const fieldWasEnriched = wasFieldEnriched(item, 'buyingIntent')
+                            if (val && val !== 'not found') {
+                              const color = val === 'high' ? '#16a34a' : val === 'medium' ? '#ca8a04' : val === 'low' ? '#dc2626' : '#101828'
+                              return <span style={{ color, fontWeight: 600, fontSize: '12px' }}>{capitalizeFirst(val)}</span>
+                            }
+                            if (fieldWasEnriched || val === 'not found') {
+                              return <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                            }
+                            return <span style={{ color: '#98a2b3' }}>—</span>
+                          })()}
                         </td>
                       )}
 
                       {/* Buyer-specific: Buying Intent Reason */}
                       {isBuyer && (
                         <td style={{ borderRight: '1px solid #e0e0e0' }}>
-                          <span style={{ 
-                            color: item.enrichment?.buyingIntentReason ? '#475467' : '#98a2b3',
-                            fontSize: '11px',
-                            lineHeight: '1.3'
-                          }}>
-                            {formatInsightValue(item.enrichment?.buyingIntentReason, 100)}
-                          </span>
+                          {(() => {
+                            const val = item.enrichment?.buyingIntentReason
+                            const fieldWasEnriched = wasFieldEnriched(item, 'buyingIntentReason')
+                            if (val && val !== 'Not found') {
+                              return <span style={{ color: '#475467', fontSize: '11px', lineHeight: '1.3' }}>{formatInsightValue(val, 100)}</span>
+                            }
+                            if (fieldWasEnriched || val === 'Not found') {
+                              return <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                            }
+                            return <span style={{ color: '#98a2b3' }}>—</span>
+                          })()}
                         </td>
                       )}
 
                       {/* Partner-specific: Partnership Intent */}
                       {isPartner && (
                         <td style={{ borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>
-                          <span style={{ 
-                            color: item.enrichment?.partnershipIntentLevel?.toLowerCase() === 'high' ? '#16a34a' 
-                                 : item.enrichment?.partnershipIntentLevel?.toLowerCase() === 'medium' ? '#ca8a04'
-                                 : item.enrichment?.partnershipIntentLevel?.toLowerCase() === 'low' ? '#dc2626'
-                                 : '#98a2b3',
-                            fontWeight: item.enrichment?.partnershipIntentLevel ? 600 : 400,
-                            fontSize: '12px'
-                          }}>
-                            {capitalizeFirst(formatInsightValue(item.enrichment?.partnershipIntentLevel))}
-                          </span>
+                          {(() => {
+                            const val = item.enrichment?.partnershipIntentLevel?.toLowerCase()
+                            const fieldWasEnriched = wasFieldEnriched(item, 'partnershipIntentLevel')
+                            if (val && val !== 'not found') {
+                              const color = val === 'high' ? '#16a34a' : val === 'medium' ? '#ca8a04' : val === 'low' ? '#dc2626' : '#101828'
+                              return <span style={{ color, fontWeight: 600, fontSize: '12px' }}>{capitalizeFirst(val)}</span>
+                            }
+                            if (fieldWasEnriched || val === 'not found') {
+                              return <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                            }
+                            return <span style={{ color: '#98a2b3' }}>—</span>
+                          })()}
                         </td>
                       )}
 
                       {/* Partner-specific: Partnership Intent Reason */}
                       {isPartner && (
                         <td style={{ borderRight: '1px solid #e0e0e0' }}>
-                          <span style={{ 
-                            color: item.enrichment?.partnershipIntentReason ? '#475467' : '#98a2b3',
-                            fontSize: '11px',
-                            lineHeight: '1.3'
-                          }}>
-                            {formatInsightValue(item.enrichment?.partnershipIntentReason, 100)}
-                          </span>
+                          {(() => {
+                            const val = item.enrichment?.partnershipIntentReason
+                            const fieldWasEnriched = wasFieldEnriched(item, 'partnershipIntentReason')
+                            if (val && val !== 'Not found') {
+                              return <span style={{ color: '#475467', fontSize: '11px', lineHeight: '1.3' }}>{formatInsightValue(val, 100)}</span>
+                            }
+                            if (fieldWasEnriched || val === 'Not found') {
+                              return <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                            }
+                            return <span style={{ color: '#98a2b3' }}>—</span>
+                          })()}
                         </td>
                       )}
 
                       {/* Partner-specific: Audience Overlap Score */}
                       {isPartner && (
                         <td style={{ borderRight: '1px solid #e0e0e0', textAlign: 'center' }}>
-                          <span style={{ 
-                            color: item.enrichment?.audienceOverlapScore ? '#101828' : '#98a2b3',
-                            fontWeight: item.enrichment?.audienceOverlapScore ? 600 : 400,
-                            fontSize: '12px'
-                          }}>
-                            {formatInsightValue(item.enrichment?.audienceOverlapScore)}
-                          </span>
+                          {(() => {
+                            const val = item.enrichment?.audienceOverlapScore
+                            const fieldWasEnriched = wasFieldEnriched(item, 'audienceOverlapScore')
+                            if (val && val !== 'Not found') {
+                              return <span style={{ color: '#101828', fontWeight: 600, fontSize: '12px' }}>{val}</span>
+                            }
+                            if (fieldWasEnriched || val === 'Not found') {
+                              return <span style={{ color: '#dc2626', fontSize: '12px', fontStyle: 'italic' }}>Not found</span>
+                            }
+                            return <span style={{ color: '#98a2b3' }}>—</span>
+                          })()}
                         </td>
                       )}
 
