@@ -1,527 +1,367 @@
-# FN7 Micro Module Template
+# Scout Leadsets Module
 
-This is a template repository that can be used as a starting point for building FN7 micro modules.
+A micro module for discovering, enriching, and managing leadsets powered by Exa Websets API and Firebase.
 
-## 🧠 What is a Micro Module?
+## Overview
 
-A micro module is a **self-contained mini-app** that plugs into the larger FN7 platform. Each micro module:
+Scout Leadsets Module enables growth operators to:
+- **Discover leads** by running targeted searches using Exa Websets API
+- **Enrich contact details** including email, phone, LinkedIn, and intent signals
+- **Manage leadsets** with real-time status updates and filtering
+- **Export data** for sales outreach and CRM integration
 
-- **Has its own UI layer** - Built as a React application (frontend)
-- **Optionally has its own backend** - Written in Python for APIs, automation, or heavy processing
-- **Uses SDKs as the integration layer** - SDKs serve as the glue between:
-  - The micro module ↔ the host platform
-  - The frontend ↔ backend (if present)
+The module supports multi-scout deployments where each scout can have isolated leadsets filtered by session ID.
 
-### Architecture Overview
+## Features
+
+### 🎯 Lead Discovery
+- Run targeted searches based on leadset criteria (segment, intent, geography)
+- Real-time polling of Exa Websets for live lead updates
+- Extend existing leadsets with additional buyers
+- Cancel running searches
+
+### 📊 Lead Enrichment
+- Unlock contact details: email, phone, LinkedIn profiles
+- Extract intent signals: buying intent, partnership intent, audience overlap
+- Get classification data: lead type, location, company size, role seniority
+- Investor and category fit scoring for specialized leadsets
+
+### 🔍 Filtering & Search
+- Filter by session ID (multi-scout support)
+- Search by company name, domain, or snippet content
+- Filter by recency (Last 7/30/90 days, Older)
+- Filter by contact info availability
+- Real-time status updates for running leadsets
+
+### 📥 Export & Integration
+- Download enriched leads as CSV
+- Real-time status tracking
+- Firebase-backed data persistence
+
+## Architecture
 
 ```
-┌─────────────────────────────────────┐
-│   Micro Module                      │
-│                                     │
-│  ┌──────────┐      ┌──────────┐     │
-│  │  React   │◄────►│  Python  │     │
-│  │  (UI)    │      │ (Backend)│     │
-│  └────┬─────┘      └────┬─────┘     │
-│       │                 │           │
-│       │ Frontend SDK    │ Python    │
-│       │                 │ SDK       │
-│       └────────┬────────┴           │
-│                │                    │
-└────────────────┼────────────────────┘
-                 │
-                 ▼
-         ┌───────────────┐
-         │    Firebase   │
-         └───────────────┘
+┌─────────────────────────────────────────┐
+│         React Frontend                  │
+│  ┌──────────────────────────────────┐   │
+│  │  DataCacheContext (Firebase)    │   │
+│  │  - Real-time listeners           │   │
+│  │  - Session ID filtering          │   │
+│  └──────────────────────────────────┘   │
+│           ↕ REST API                     │
+│  ┌──────────────────────────────────┐   │
+│  │  Express Backend                 │   │
+│  │  - Exa Websets integration       │   │
+│  │  - Firebase writes               │   │
+│  │  - Webhook handlers              │   │
+│  └──────────────────────────────────┘   │
+└─────────────────────────────────────────┘
+           ↕                    ↕
+    ┌─────────────┐      ┌──────────────┐
+    │  Firebase   │      │ Exa Websets  │
+    │  Firestore  │      │     API      │
+    └─────────────┘      └──────────────┘
 ```
 
-### Data Flow
+### Key Components
 
-1. **User interacts** with your micro module's React UI
-2. **Frontend calls SDK functions** (e.g., `sdk.getFirebaseData()`, `sdk.createFirebaseData()`)
-3. **SDK abstracts data access** - It may:
-   - Fetch directly from the core platform (using authenticated tokens), or
-   - Call your Python backend, which uses the Python SDK to access/transform data
-4. **Backend processes** and sends data back to frontend → React re-renders UI
+- **Frontend**: React app with real-time Firebase listeners
+- **Backend**: Node.js/Express server handling Exa API calls
+- **SDK**: FN7 SDK for Firebase operations (local mode for development)
+- **Data Flow**: Frontend reads from Firebase, backend writes and handles actions
 
+## Quick Start
 
-## 🚀 Quick Start
+### Prerequisites
 
-### Option 1: Use GitHub Template Feature (Recommended)
+- Node.js 16+ and npm
+- Firebase project with Firestore enabled
+- Exa API key (for lead discovery and enrichment)
 
-1. Click the green **"Use this template"** button on GitHub
-2. Give your new repository a name
-3. Click **"Create repository from template"**
-4. Clone your new repository
-5. You're done! The new repository is already disconnected from this template.
+### Installation
 
-### Option 2: Manual Setup
-
-1. **Clone the repository:**
+1. **Clone the repository**
    ```bash
-   git clone <this-repo-url>
-   cd <repo-name>
+   git clone https://github.com/rithvikfn7/ScoutLeadModule.git
+   cd ScoutLeadModule
    ```
 
-2. **Remove the existing git history:**
+2. **Install frontend dependencies**
    ```bash
-   rm -rf .git
-   git init
-   git add .
-   git commit -m "Initial commit from template"
+   cd frontend
+   npm install
    ```
 
-3. **Create a new repository** on GitHub/GitLab/Bitbucket (do NOT initialize with README)
-
-4. **Add your remote and push:**
+3. **Install backend dependencies**
    ```bash
-   git remote add origin <your-new-repo-url>
-   git branch -M main
-   git push -u origin main
+   cd ../backend
+   npm install
    ```
 
-## 📦 Building a Micro Module - Complete Guide
+4. **Configure environment variables**
 
-Every micro module **must have a React frontend**. You can optionally add a **Node.js backend** or **Python backend** for APIs.
+   **Frontend** (`frontend/.env`):
+   ```env
+   REACT_APP_FIREBASE_CONFIG={"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}
+   REACT_APP_BACKEND_URL=http://localhost:3000
+   ```
 
-### Step 1: Create Your React Application
+   **Backend** (`backend/.env`):
+   ```env
+   FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+   EXA_API_KEY=your_exa_api_key
+   EXA_WEBHOOK_SECRET=your_webhook_secret
+   WEBHOOK_URL=https://your-domain.com/webhooks/exa
+   FIREBASE_STORAGE_BUCKET=your-bucket.appspot.com
+   FN7_SDK_MODE=local
+   PORT=3000
+   ```
 
-**Eg: Using Create React App**
-```bash
-npx create-react-app my-micro-module
-cd my-micro-module
+5. **Start the backend**
+   ```bash
+   cd backend
+   npm start
+   ```
+
+6. **Start the frontend**
+   ```bash
+   cd frontend
+   npm start
+   ```
+
+The app will be available at `http://localhost:3001`
+
+## Session ID Filtering
+
+The module supports multi-scout deployments where each scout has isolated leadsets.
+
+### How It Works
+
+1. **Session ID Sources** (priority order):
+   - URL parameter: `?sessionId=xxx`
+   - localStorage: `scout_session_id` key
+   - Automatically extracted from uploaded leadset collections
+
+2. **Filtering**: Only leadsets matching the current session ID are displayed
+
+3. **Persistence**: Session ID from URL is saved to localStorage automatically
+
+### Usage
+
+**Via URL:**
+```
+http://localhost:3001/?sessionId=156dda59-e6c8-453e-8560-21d8f70a0033
 ```
 
-### Step 2: Install and Configure the Frontend SDK
-
-**Install the SDK via CDN or ES Modules:**
-
-Create a file `src/sdk.js` (or `src/sdk.ts` for TypeScript):
-
+**Via localStorage:**
 ```javascript
-// src/sdk.js
-import FN7SDK from 'https://fn7.io/.fn7-sdk/frontend/latest/sdk.esm.js';
-
-// Firebase configuration - Get this from your Firebase project settings
-const firebaseConfig = {
-  apiKey: "your-api-key",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "your-app-id"
-};
-
-// Initialize SDK with unified config object
-const sdk = new FN7SDK({
-  mode: 'local',  // 'local' for development, 'server' for production
-  firebaseConfig: firebaseConfig,
-  apiBaseUrl: undefined  // Only needed in 'server' mode
-});
-
-export default sdk;
+localStorage.setItem('scout_session_id', 'your-session-id')
 ```
 
-**Where to get Firebase config:**
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Select your project (or create a new one)
-3. Go to Project Settings (gear icon)
-4. Scroll to "Your apps" section
-5. Click the web icon (`</>`) to add a web app
-6. Copy the `firebaseConfig` object
+**From Leadset Upload:**
+When uploading a JSON file with `session_id` in the collection format, it's automatically extracted and applied.
 
-### Step 3: Set Up Authentication (Local Mode Recommended)
+See [SESSION_ID_IMPLEMENTATION.md](./SESSION_ID_IMPLEMENTATION.md) for detailed documentation.
 
-The Frontend SDK supports two modes. Choose the mode that fits your needs:
+## Leadset Format
 
-#### Local Mode (Recommended for Development)
+The module supports multiple leadset input formats:
 
-When `mode: 'local'` is set, the SDK automatically:
-- Skips backend authentication calls
-- Uses hardcoded defaults for `user_context` and `app_context`
-- Populates `localStorage` with default values (so your app can access them)
-- Works immediately out of the box
-
-**Setup:**
-```javascript
-// src/config/environment.js (or environment.local.js)
-export const environment = {
-  firebase: { /* your Firebase config */ },
-  apiBaseUrl: undefined, // Not needed in local mode
-};
-
-// In sdk.js
-const sdk = new FN7SDK({
-  mode: 'local',
-  firebaseConfig: environment.firebase
-});
-```
-
-#### Server Mode (Dev/Prod)
-
-When `mode: 'server'` is set, the SDK:
-- Requires `localStorage.user_context` and `localStorage.app_context`
-- Makes backend calls for authentication
-- Full security and custom claims support
-
-**Setup:**
-```javascript
-// src/config/environment.dev.js
-export const environment = {
-  firebase: { /* your Firebase config */ },
-  apiBaseUrl: 'https://atlas.dev2.app.fn7.io',
-};
-
-// In sdk.js
-const sdk = new FN7SDK({
-  mode: 'server',
-  firebaseConfig: environment.firebase,
-  apiBaseUrl: environment.apiBaseUrl
-});
-
-// Set localStorage (typically done by FN7 platform)
-localStorage.setItem('user_context', JSON.stringify({ /* ... */ }));
-localStorage.setItem('app_context', JSON.stringify({ /* ... */ }));
-```
-
-**Recommendation:** Use Local Mode for development, Server Mode for testing with real backend.
-
-### Step 4: Use the SDK in Your React Components
-
-**Example Component:**
-```javascript
-// src/App.js
-import { useState, useEffect } from 'react';
-import sdk from './sdk';
-import './App.css';
-
-function App() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Get user context
-    const userId = sdk.getUserId();
-    console.log('Current user:', userId);
-
-    // Fetch data using SDK
-    if (userId) {
-      sdk.getFirebaseData('Users', userId)
-        .then((userData) => {
-          setData(userData);
-          setLoading(false);
-        })
-        .catch((error) => {
-          console.error('Error fetching data:', error);
-          setLoading(false);
-        });
+### Standard Format (Recommended)
+```json
+{
+  "leadset_documents": [
+    {
+      "doc_id": "5359248498",
+      "session_id": "Brain_3428444535",
+      "name": "Organic & Health Food Retailers",
+      "description": "Specialty stores focusing on organic products",
+      "prompt": "Find retailers specializing in organic food...",
+      "target": "retailer",
+      "intent_type": "buyer",
+      "enrichment_fields": [
+        "contact_email",
+        "contact_phone",
+        "geo_location",
+        "lead_type",
+        "buying_intent_level"
+      ],
+      "status": "idle"
     }
-  }, []);
-
-  const handleCreate = async () => {
-    try {
-      const result = await sdk.createFirebaseData('Chats', 'chat123', {
-        message: 'Hello from micro module!',
-        created_at: new Date().toISOString()
-      });
-      console.log('Created:', result);
-    } catch (error) {
-      console.error('Error creating:', error);
-    }
-  };
-
-  if (loading) return <div>Loading...</div>;
-
-  return (
-    <div className="App">
-      <h1>My Micro Module</h1>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
-      <button onClick={handleCreate}>Create Data</button>
-    </div>
-  );
+  ]
 }
-
-export default App;
 ```
 
-**Frontend SDK Features:**
-- Firebase CRUD operations (Get, Create, Update, Delete, Search)
-- Firebase Storage operations (Upload, Get URL, Get Blob)
-- User, Application, and Organization context helpers
-- Real-time Firebase listeners
+### Collection Format (Legacy)
+```json
+{
+  "session_id": "156dda59-e6c8-453e-8560-21d8f70a0033",
+  "lead_sets": [...]
+}
+```
 
-**Documentation:** [`fn7-sdk/frontend-sdk.md`](./fn7-sdk/frontend-sdk.md)
-**Example:** [fn7SDK-React-app](https://github.com/d1nzfn7/fn7SDK-React-app)
+## API Endpoints
 
-### Step 5: Add Backend (Node.js or Python)
+### Leadset Management
+- `GET /leadsets` - List all leadsets
+- `GET /leadsets/:id/detail` - Get leadset with runs and items
+- `GET /leadsets/:id/run-status` - Check if leadset has active run
 
-If your micro module needs backend logic, APIs, or automation, you can use either Node.js or Python:
+### Run Operations
+- `POST /leadsets/:id/run` - Start a new search run
+- `GET /leadsets/:id/runs/:runId/webset` - Get webset status and items
+- `POST /leadsets/:id/runs/:runId/cancel` - Cancel running search
 
-#### Option A: Node.js Backend (Ready-to-use template available)
+### Enrichment
+- `POST /leadsets/:id/runs/:runId/enrich` - Request enrichment for selected items
+- `GET /leadsets/:id/runs/:runId/enrichment/:enrichmentId` - Get enrichment status
 
-If you want to use Node.js, the template repository includes a ready-to-use Node.js backend in the `nodejs-backend/` folder:
+### Export
+- `GET /leadsets/:id/runs/:runId/export` - Download leads as CSV
 
-1. **Navigate to the nodejs-backend folder:**
+### Data Management
+- `POST /seed` - Upload leadsets from JSON
+- `DELETE /seed` - Factory reset (deletes all data)
+
+## Data Structure
+
+### Firebase Collections
+
+| Collection | Purpose | Key Fields |
+|------------|---------|------------|
+| `leadsets` | Leadset definitions | `id`, `name`, `prompt`, `sessionId`, `status`, `websetId` |
+| `runs` | Execution records | `id`, `leadsetId`, `websetId`, `status`, `counters`, `mode` |
+| `items` | Discovered leads | `itemId`, `leadsetId`, `entity`, `snippet`, `score`, `enrichment` |
+| `enrichments` | Enrichment jobs | `id`, `runId`, `status`, `itemIds`, `fields` |
+| `settings` | Module configuration | `cost`, `limits` |
+| `leadsetFeed` | Aggregated cache | `leadsets`, `leadsetDetails`, `settings`, `updatedAt` |
+
+### Enrichment Fields
+
+**Contact Information:**
+- `contact_email` → `email`
+- `contact_phone` → `phone`
+- `has_linkedin_messaging` → `linkedinUrl`
+- `primary_contact_channel` → `primaryContactChannel`
+
+**Classification:**
+- `lead_type` → `leadType`
+- `geo_location` → `geoLocation`
+- `company_size_band` → `employeeCount`
+- `role_seniority_band` → `roleSeniorityBand`
+
+**Intent Signals:**
+- `buying_intent_level` → `buyingIntent`
+- `buying_intent_reason` → `buyingIntentReason`
+- `partnership_intent_level` → `partnershipIntentLevel`
+- `partnership_intent_reason` → `partnershipIntentReason`
+- `audience_overlap_score` → `audienceOverlapScore`
+- `audience_overlap_reason` → `audienceOverlapReason`
+
+**Specialized Fields:**
+- `investor_intent_level` → `investorIntentLevel`
+- `investor_intent_reason` → `investorIntentReason`
+- `category_fit_score` → `categoryFitScore`
+- `category_fit_reason` → `categoryFitReason`
+- `estimated_reach_band` → `estimatedReachBand`
+
+## Development
+
+### Local Mode
+
+The module runs in **local mode** by default, which:
+- Uses hardcoded Firebase credentials (no service account needed)
+- Bypasses authentication requirements
+- Works offline for development
+
+Set `FN7_SDK_MODE=local` in backend `.env` (default).
+
+### Real-time Updates
+
+- Frontend subscribes to `leadsetFeed/global` document
+- Backend rebuilds feed on every data change
+- Auto-refresh every 5 seconds for running leadsets
+- Webhook support for near-instant updates from Exa
+
+### Testing
+
+1. **Seed test data:**
    ```bash
-   cd nodejs-backend
+   cd backend
+   node scripts/seed.js
    ```
 
-2. **Follow the setup instructions in `nodejs-backend/README.md`**
+2. **Start both servers:**
+   ```bash
+   # Terminal 1: Backend
+   cd backend && npm start
+   
+   # Terminal 2: Frontend
+   cd frontend && npm start
+   ```
 
-The Node.js backend includes:
-- Express server setup
-- FN7 SDK integration
-- Example CRUD operations
-- JWT token handling
-- Docker support
+3. **Test webhooks locally:**
+   Use `ngrok` to expose backend and set `WEBHOOK_URL` in `.env`
 
-#### Option B: Python Backend
-
-If you prefer Python for backend logic, APIs, or automation:
-
-**5.1. Create Backend Directory Structure:**
-```bash
-mkdir backend
-cd backend
-```
-
-**5.2. Set Up Python Environment:**
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-**5.3. Install Dependencies:**
-```bash
-pip install fn7-sdk --extra-index-url https://fn7.io/.fn7-sdk/python/
-pip install fastapi uvicorn python-dotenv
-```
-
-**5.4. Create Backend Application:**
-
-The template repository includes a ready-to-use Python backend in the `python-backend/` folder. See `python-backend/README.md` for setup instructions.
-
-**Key Features:**
-- JWT tokens optional when testing in local
-- Example CRUD endpoints
-- JWT token handling (optional in local mode)
-- Error handling
-
-**Example endpoint (from `python-backend/app/main.py`):**
-```python
-from fastapi import FastAPI, Header
-from fn7_sdk import FN7SDK
-from typing import Optional
-
-app = FastAPI()
-sdk = FN7SDK()
-
-@app.get("/api/users/{user_id}")
-async def get_user(user_id: str, authorization: Optional[str] = Header(None)):
-    # Extract JWT token (optional in local mode)
-    jwt_token = authorization.replace("Bearer ", "") if authorization else None
-
-    # Token is optional - SDK handles it automatically in local mode
-    data = sdk.get_firebase_data("Users", user_id, jwt_token)
-    return data
-```
-
-**5.5. Set Up Environment Variables:**
-
-Create `backend/.env`:
-```bash
-FIREBASE_SERVICE_ACCOUNT_PATH=/path/to/service-account.json
-# OR
-FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
-FIREBASE_STORAGE_BUCKET=your-storage-bucket.appspot.com
-```
-
-**Local Mode Benefits:**
-- No need to extract/pass JWT tokens from request headers
-- SDK automatically uses hardcoded dev token
-- Faster development iteration
-- Consistent test data
-
-**5.6. Run Backend:**
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-
-**5.7. Connect Frontend to Backend:**
-
-Update your React app to call your backend:
-```javascript
-// In your React component
-const callBackend = async () => {
-  // In local mode, Authorization header is optional
-  const response = await fetch('http://localhost:8000/api/users/user123', {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json'
-      // Authorization header optional in local mode
-    }
-  });
-  const result = await response.json();
-  console.log(result);
-};
-```
-
-**Python SDK Features:**
-- Firebase CRUD operations with security rules enforcement
-- Firebase Storage operations
-- JWT token-based authentication
-- Organization isolation and access control
-- Built-in security validation
-
-**Documentation:** [`fn7-sdk/python-sdk.md`](./fn7-sdk/python-sdk.md)
-**Example:** [fn7SDK-python-backend](https://github.com/d1nzfn7/fn7SDK-python-backend)
-
-### Project Structure
-
-A typical micro module structure looks like:
+## Project Structure
 
 ```
-my-micro-module/
-├── frontend/                 # React application
+ScoutLeadModule/
+├── frontend/
 │   ├── src/
-│   │   ├── sdk.js           # SDK initialization
-│   │   ├── App.js           # Main component
-│   │   └── components/      # Your React components
-│   ├── package.json
-│   └── ...
-├── nodejs-backend/           # Node.js backend (optional)
+│   │   ├── components/          # React components
+│   │   ├── contexts/            # DataCacheContext
+│   │   ├── hooks/               # useSessionId hook
+│   │   ├── pages/               # Dashboard & Detail pages
+│   │   ├── services/            # API client
+│   │   └── sdk.js              # FN7 SDK wrapper
+│   └── package.json
+├── backend/
 │   ├── src/
-│   │   ├── index.js         # Express server
-│   │   └── sdk.js           # SDK initialization
-│   ├── package.json
-│   ├── .env.example
-│   └── README.md
-├── python-backend/           # Python backend (optional)
-│   ├── app/
-│   │   └── main.py          # FastAPI application
-│   ├── .env                 # Environment variables
-│   └── requirements.txt
+│   │   ├── index.js            # Express server & routes
+│   │   └── sdk.js              # SDK initialization
+│   ├── scripts/
+│   │   └── seed.js             # Seed script
+│   └── package.json
+├── data/
+│   ├── leadsets.json           # Sample leadsets
+│   └── settings.json          # Module settings
 └── README.md
 ```
 
-**Note:** You can use either Node.js or Python backend, or both. Delete the folders you don't need.
+## Troubleshooting
 
-## 📚 SDK Documentation
+### Leadsets not showing
+- Check if `leadsetFeed/global` document exists in Firebase
+- Run seed script: `cd backend && node scripts/seed.js`
+- Verify session ID filter isn't hiding leadsets
 
-Both SDKs are documented in detail:
+### Enrichment not working
+- Verify `EXA_API_KEY` is set in backend `.env`
+- Check webhook signature verification (`EXA_WEBHOOK_SECRET`)
+- Monitor backend logs for Exa API errors
 
-- **Frontend SDK:** [`fn7-sdk/frontend-sdk.md`](./fn7-sdk/frontend-sdk.md) - Complete API reference for JavaScript/TypeScript SDK
-- **Python SDK:** [`fn7-sdk/python-sdk.md`](./fn7-sdk/python-sdk.md) - Complete API reference for Python SDK
+### Real-time updates not working
+- Ensure Firebase listener is active (check browser console)
+- Verify backend is calling `rebuildLeadsetFeed()` after writes
+- Check `docStatus/status` document updates
 
-## 🎨 UI Guidelines
+### Export failing
+- Set `FIREBASE_STORAGE_BUCKET` in backend `.env`
+- Check Firebase Storage permissions
+- Fallback to inline CSV download if storage unavailable
 
-For frontend micro modules, please refer to [`UI_CONTEXT.md`](./UI_CONTEXT.md) for design guidelines, including:
-- Font specifications (Sora)
-- Theme requirements (Light theme)
-- Color palette
-- Component guidelines
+## Documentation
 
-## 📝 Quick Start Checklist
+- [PROJECT_OVERVIEW.md](./PROJECT_OVERVIEW.md) - Detailed architecture and data flow
+- [SESSION_ID_IMPLEMENTATION.md](./SESSION_ID_IMPLEMENTATION.md) - Session filtering guide
+- [ENRICHMENT_RESPONSE_FLOW.md](./ENRICHMENT_RESPONSE_FLOW.md) - Enrichment workflow
+- [UI_CONTEXT.md](./UI_CONTEXT.md) - UI guidelines and design system
 
-1. ✅ **Set up your repository** using the Quick Start guide above
-2. ✅ **Create your React application** (Step 1 in Building Guide)
-3. ✅ **Get Firebase configuration** from Firebase Console
-4. ✅ **Install and configure Frontend SDK** (Step 2 in Building Guide)
-5. ✅ **Set up authentication** - Understand how tokens work (Step 3)
-6. ✅ **Build your React UI** using the SDK (Step 4)
-7. ✅ **Add Python backend** if needed (Step 5)
-8. ✅ **Review SDK documentation** - See links below for complete API references
-9. ✅ **Check example implementations** - Reference the example repos
-10. ✅ **Test locally** - Run your React app and backend (if applicable)
+## License
 
-## 🚀 Local Development Mode
+[Add your license here]
 
-All SDKs now support **Local Mode** - a development feature that eliminates the need for backend calls and manual token setup.
+## Support
 
-### Frontend (React)
-
-**Enable Local Mode:**
-- Set `mode: 'local'` in your SDK config
-- SDK automatically uses hardcoded defaults for `user_context` and `app_context`
-- No need to manually set `localStorage.user_context` or `localStorage.app_context`
-- No backend calls, no authentication required
-
-**Example:**
-```javascript
-// src/sdk.js
-import FN7SDK from 'https://fn7.io/.fn7-sdk/frontend/latest/sdk.esm.js';
-import { environment } from './config/environment';
-
-const sdk = new FN7SDK({
-  mode: 'local',  // Local mode enabled
-  firebaseConfig: environment.firebase
-});
-// Works immediately - no setup needed!
-```
-
-### Backend (Node.js)
-
-**Enable Local Mode:**
-- Set `mode: 'local'` in your SDK config
-- `authContext` (JWT token) becomes optional in all methods
-- SDK automatically uses hardcoded dev token if no token provided
-
-```javascript
-// In your code
-const sdk = new FN7SDK({
-  mode: 'local',
-  storageBucketName: 'your-bucket'
-});
-const data = await sdk.getFirebaseData('Users', 'user123');  // authContext optional!
-```
-
-### Backend (Python)
-
-- All SDK methods work without providing JWT tokens
-- SDK automatically uses hardcoded dev token
-
-```python
-# In your code
-sdk = FN7SDK()
-data = sdk.get_firebase_data("Users", "user123")  # No token needed!
-```
-
-**Benefits:**
-- ✅ Faster local development setup
-- ✅ No need to mock tokens or localStorage
-- ✅ Consistent default values across all developers
-- ✅ Works offline (no backend dependency)
-- ✅ Easy to test and iterate
-
-**Note:** Local mode is automatically disabled in dev/prod environments when proper tokens are provided.
-
-## ⚠️ Important Notes
-
-- **Never push directly to this template repository** - Always create a new repository first
-- **Firebase Configuration Required** - Both SDKs need proper Firebase setup
-- **Local Mode Recommended** - Use Local Mode for development to get started faster
-- **Authentication** - In Local Mode, authentication is automatic. In Dev/Prod mode, Frontend SDK reads tokens from `localStorage.user_context` and `localStorage.app_context`
-- **Backend Authentication** - In Local Mode, `authContext` (JWT tokens) is optional. In Server mode, Python/Node.js backends require JWT token passed as `authContext` parameter
-- **Environment Variables** - Backends need Firebase service account credentials
-- **UI Guidelines** - Follow the UI guidelines for frontend modules (Sora font, light theme)
-- **Review Examples** - Check the example implementations for best practices
-
-## 🔧 Development Tips
-
-- **Local Development**: Set `localStorage.user_context` and `localStorage.app_context` manually for testing
-- **CORS**: If connecting frontend to backend, ensure CORS is configured in your backend
-- **Error Handling**: Always wrap SDK calls in try-catch blocks
-- **Loading States**: Show loading indicators while SDK operations are in progress
-- **TypeScript**: Both SDKs support TypeScript for better type safety
-
-## 🤝 Contributing to the Template
-
-If you want to improve this template itself, please:
-
-1. Fork this repository
-2. Make your changes
-3. Submit a pull request
-
----
-
-**Note:** If you're using this template on GitHub, make sure the repository settings mark it as a template repository (Settings → Template repository).
+For issues and questions, please open an issue on GitHub or contact the development team.
