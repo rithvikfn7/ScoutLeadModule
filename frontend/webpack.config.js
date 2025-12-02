@@ -14,6 +14,10 @@ module.exports = {
     filename: isProduction ? '[name].[contenthash].js' : '[name].js',
     publicPath: isProduction ? 'auto' : 'http://localhost:3001/',
     clean: true,
+    library: {
+      name: 'leads_module',
+      type: 'var',
+    },
   },
   devServer: {
     port: 3001,
@@ -57,7 +61,7 @@ module.exports = {
   },
   plugins: [
     new ModuleFederationPlugin({
-      name: 'leads-module',
+      name: 'leads_module',
       filename: 'remoteEntry.js',
       exposes: {
         './App': './src/App',
