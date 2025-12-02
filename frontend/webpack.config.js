@@ -15,8 +15,8 @@ module.exports = {
     publicPath: isProduction ? 'auto' : 'http://localhost:3001/',
     clean: true,
     library: {
-      name: 'leads_module',
-      type: 'var',
+      name: 'leads-module',
+      type: 'global',
     },
   },
   devServer: {
@@ -61,7 +61,7 @@ module.exports = {
   },
   plugins: [
     new ModuleFederationPlugin({
-      name: 'leads_module',
+      name: 'leads-module',
       filename: 'remoteEntry.js',
       exposes: {
         './App': './src/App',
