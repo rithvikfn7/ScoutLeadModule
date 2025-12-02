@@ -58,7 +58,7 @@ module.exports = {
   plugins: [
     new ModuleFederationPlugin({
       name: 'leads-module',
-      filename: 'remoteEntry.js',
+      filename: 'remoteEntry.mjs',
       library: {
         type: 'global',
         name: 'leads-module',
