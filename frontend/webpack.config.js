@@ -6,13 +6,28 @@ const path = require('path');
 const isDevelopment = process.env.NODE_ENV !== 'production';
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Determine publicPath based on environment
+// Use environment variable if set, otherwise use 'auto' for production or localhost for dev server
+const getPublicPath = () => {
+  // If PUBLIC_URL is set (e.g., from CI/CD), use it
+  if (process.env.PUBLIC_URL) {
+    return process.env.PUBLIC_URL.endsWith('/') ? process.env.PUBLIC_URL : `${process.env.PUBLIC_URL}/`;
+  }
+  // For production builds, use 'auto' which will resolve based on where remoteEntry.mjs is loaded
+  if (isProduction) {
+    return 'auto';
+  }
+  // For local development server, use localhost
+  return 'http://localhost:3001/';
+};
+
 module.exports = {
   mode: isProduction ? 'production' : 'development',
   entry: './src/index.js',
   output: {
     path: path.resolve(__dirname, 'build'),
     filename: isProduction ? '[name].[contenthash].js' : '[name].js',
-    publicPath: isProduction ? 'auto' : 'http://localhost:3001/',
+    publicPath: getPublicPath(),
     clean: true,
   },
   devServer: {
