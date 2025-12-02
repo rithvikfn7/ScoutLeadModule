@@ -1324,7 +1324,7 @@ app.get('/health', (req, res) => {
 /**
  * Debug route: fetch current leadset feed document
  */
-app.get('/leadset-feed', async (req, res, next) => {
+app.get('/api/leads/leadset-feed', async (req, res, next) => {
   try {
     const feed = await sdk.getFirebaseData('leadsetFeed', 'global')
     res.json(feed || {})
@@ -1343,7 +1343,7 @@ app.get('/leadset-feed', async (req, res, next) => {
  * 3. New standard format: { leadset_documents: [ ... ] }
  * 4. Legacy format: { leadsets: [ ... ] }
  */
-app.post('/seed', async (req, res, next) => {
+app.post('/api/leads/seed', async (req, res, next) => {
   let { leadsets = [], settings = null, clearExisting = false } = req.body
   let collectionSessionId = null
   
@@ -1441,7 +1441,7 @@ app.post('/seed', async (req, res, next) => {
  * 
  * This ensures a completely clean slate with no orphaned websets in Exa.
  */
-app.delete('/seed', async (req, res, next) => {
+app.delete('/api/leads/seed', async (req, res, next) => {
   try {
     const results = {
       exaWebsetsDeleted: 0,
@@ -1595,7 +1595,7 @@ app.delete('/seed', async (req, res, next) => {
 /**
  * List all leadsets (for frontend data)
  */
-app.get('/leadsets', async (req, res, next) => {
+app.get('/api/leads/leadsets', async (req, res, next) => {
   try {
     // FN7 SDK: searchFirebaseData(queryConstraints, limit, orderBy?, authContext?)
     // Returns all docs for org, we filter by doc_type client-side
@@ -1614,7 +1614,7 @@ app.get('/leadsets', async (req, res, next) => {
 /**
  * Get websetId for a leadset (quick lookup)
  */
-app.get('/leadsets/:leadsetId/webset-id', async (req, res, next) => {
+app.get('/api/leads/leadsets/:leadsetId/webset-id', async (req, res, next) => {
   const { leadsetId } = req.params
   try {
     const allDocs = toArray(await sdk.searchFirebaseData({}, 500))
@@ -1641,7 +1641,7 @@ app.get('/leadsets/:leadsetId/webset-id', async (req, res, next) => {
   }
 })
 
-app.get('/leadsets/:leadsetId/detail', async (req, res, next) => {
+app.get('/api/leads/leadsets/:leadsetId/detail', async (req, res, next) => {
   const { leadsetId } = req.params
   try {
     let leadset = await sdk.getFirebaseData('leadsets', leadsetId)
@@ -1743,7 +1743,7 @@ app.get('/leadsets/:leadsetId/detail', async (req, res, next) => {
  * Manually sync items from Exa API to Firebase
  * POST /leadsets/:leadsetId/sync-items?websetId=xxx (optional websetId)
  */
-app.post('/leadsets/:leadsetId/sync-items', async (req, res, next) => {
+app.post('/api/leads/leadsets/:leadsetId/sync-items', async (req, res, next) => {
   const { leadsetId } = req.params
   const { websetId: providedWebsetId } = req.query
   try {
@@ -1871,7 +1871,7 @@ app.post('/leadsets/:leadsetId/sync-items', async (req, res, next) => {
  * Delete all items for a leadset
  * DELETE /leadsets/:leadsetId/items
  */
-app.delete('/leadsets/:leadsetId/items', async (req, res, next) => {
+app.delete('/api/leads/leadsets/:leadsetId/items', async (req, res, next) => {
   const { leadsetId } = req.params
   try {
     console.log(`[Delete] Starting deletion of items for leadset ${leadsetId}`)
@@ -1927,7 +1927,7 @@ app.delete('/leadsets/:leadsetId/items', async (req, res, next) => {
 /**
  * Get settings
  */
-app.get('/settings', async (req, res, next) => {
+app.get('/api/leads/settings', async (req, res, next) => {
   try {
     const settings = await sdk.getFirebaseData('settings', 'settings').catch(() => null)
     res.json(settings || { cost: { perContact: 2 } })
@@ -1945,7 +1945,7 @@ app.get('/settings', async (req, res, next) => {
  * Check if a leadset has an existing run with a webset
  * Returns info about the existing run/webset if any
  */
-app.get('/leadsets/:leadsetId/run-status', async (req, res, next) => {
+app.get('/api/leads/leadsets/:leadsetId/run-status', async (req, res, next) => {
   const { leadsetId } = req.params
   
   try {
@@ -1993,7 +1993,7 @@ app.get('/leadsets/:leadsetId/run-status', async (req, res, next) => {
  * - 'extend': Add more buyers to existing webset
  * - 'replace': Delete existing webset and create new one
  */
-app.post('/leadsets/:leadsetId/run', async (req, res, next) => {
+app.post('/api/leads/leadsets/:leadsetId/run', async (req, res, next) => {
   const { leadsetId } = req.params
   const { mode = 'new', count = 10, force = false } = req.body
   
@@ -2150,7 +2150,7 @@ app.post('/leadsets/:leadsetId/run', async (req, res, next) => {
  * Get webset status and items from Exa
  * This is polled by the frontend for real-time updates
  */
-app.get('/leadsets/:leadsetId/runs/:runId/webset', async (req, res, next) => {
+app.get('/api/leads/leadsets/:leadsetId/runs/:runId/webset', async (req, res, next) => {
   const { leadsetId, runId } = req.params
   
   try {
@@ -2229,7 +2229,7 @@ app.get('/leadsets/:leadsetId/runs/:runId/webset', async (req, res, next) => {
 /**
  * Cancel a running run/webset
  */
-app.post('/leadsets/:leadsetId/runs/:runId/cancel', async (req, res, next) => {
+app.post('/api/leads/leadsets/:leadsetId/runs/:runId/cancel', async (req, res, next) => {
   const { leadsetId, runId } = req.params
   
   try {
@@ -2268,7 +2268,7 @@ app.post('/leadsets/:leadsetId/runs/:runId/cancel', async (req, res, next) => {
  * Request enrichment for contact details
  * Creates enrichments in Exa for email and phone
  */
-app.post('/leadsets/:leadsetId/runs/:runId/enrich', async (req, res, next) => {
+app.post('/api/leads/leadsets/:leadsetId/runs/:runId/enrich', async (req, res, next) => {
   const { leadsetId, runId } = req.params
   const { fields: requestedFieldsInput = [] } = req.body || {}
 
@@ -2424,7 +2424,7 @@ app.post('/leadsets/:leadsetId/runs/:runId/enrich', async (req, res, next) => {
 /**
  * Get enrichment status and fetch results from Exa
  */
-app.get('/leadsets/:leadsetId/runs/:runId/enrichment/:enrichmentId', async (req, res, next) => {
+app.get('/api/leads/leadsets/:leadsetId/runs/:runId/enrichment/:enrichmentId', async (req, res, next) => {
   const { leadsetId, runId, enrichmentId } = req.params
   
   try {
@@ -2892,7 +2892,7 @@ app.get('/leadsets/:leadsetId/runs/:runId/enrichment/:enrichmentId', async (req,
 /**
  * Export run data as CSV
  */
-app.get('/leadsets/:leadsetId/runs/:runId/export', async (req, res, next) => {
+app.get('/api/leads/leadsets/:leadsetId/runs/:runId/export', async (req, res, next) => {
   const { leadsetId, runId } = req.params
   
   try {
@@ -2929,7 +2929,7 @@ app.get('/leadsets/:leadsetId/runs/:runId/export', async (req, res, next) => {
  * Exa webhook handler
  * Receives real-time updates from Exa about webset and enrichment progress
  */
-app.post('/webhooks/exa', async (req, res, next) => {
+app.post('/api/leads/webhooks/exa', async (req, res, next) => {
   const signature = req.headers['x-exa-signature']
   const rawBody = req.rawBody || Buffer.from(JSON.stringify(req.body || {}))
   

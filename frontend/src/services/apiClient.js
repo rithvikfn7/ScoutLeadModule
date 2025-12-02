@@ -9,12 +9,13 @@
  *   3. Export/download operations
  * 
  * Exa Websets Integration:
- * - POST /leadsets/:id/run -> Creates Webset in Exa, searches for buyers
- * - GET /leadsets/:id/runs/:runId/webset -> Gets live items from Exa
- * - POST /leadsets/:id/runs/:runId/enrich -> Creates enrichments for email/phone
+ * - POST /api/leads/leadsets/:id/run -> Creates Webset in Exa, searches for buyers
+ * - GET /api/leads/leadsets/:id/runs/:runId/webset -> Gets live items from Exa
+ * - POST /api/leads/leadsets/:id/runs/:runId/enrich -> Creates enrichments for email/phone
  */
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3000'
+const API_PREFIX = '/api/leads'
 
 /**
  * Generic request helper with error handling
@@ -37,7 +38,7 @@ async function request(path, options = {}) {
     fetchOpts.body = JSON.stringify(fetchOpts.body)
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, fetchOpts)
+  const res = await fetch(`${API_BASE_URL}${API_PREFIX}${path}`, fetchOpts)
 
   if (!res.ok) {
     const text = await res.text()
@@ -168,7 +169,7 @@ export function cancelRun(leadsetId, runId) {
  * Backend: Generates CSV from Firebase data, uploads to Storage
  */
 export async function exportRun(leadsetId, runId) {
-  const response = await fetch(`${API_BASE_URL}/leadsets/${leadsetId}/runs/${runId}/export`, {
+  const response = await fetch(`${API_BASE_URL}${API_PREFIX}/leadsets/${leadsetId}/runs/${runId}/export`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
