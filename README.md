@@ -44,24 +44,51 @@ The module supports multi-scout deployments where each scout can have isolated l
 ┌─────────────────────────────────────────┐
 │         React Frontend                  │
 │  ┌──────────────────────────────────┐   │
-│  │  DataCacheContext (Firebase)    │   │
+│  │  FN7 SDK (Firebase Direct Read) │   │
 │  │  - Real-time listeners           │   │
 │  │  - Session ID filtering          │   │
-│  └──────────────────────────────────┘   │
-│           ↕ REST API                     │
+│  │  - Reads leadsetFeed/global      │   │
+│  └──────────────┬───────────────────┘   │
+│                 │                        │
+│                 │ Direct Firebase Read   │
+│                 │ (via SDK)              │
+│                 ▼                        │
 │  ┌──────────────────────────────────┐   │
-│  │  Express Backend                 │   │
-│  │  - Exa Websets integration       │   │
-│  │  - Firebase writes               │   │
-│  │  - Webhook handlers              │   │
-│  └──────────────────────────────────┘   │
-└─────────────────────────────────────────┘
-           ↕                    ↕
-    ┌─────────────┐      ┌──────────────┐
-    │  Firebase   │      │ Exa Websets  │
-    │  Firestore  │      │     API      │
-    └─────────────┘      └──────────────┘
+│  │  REST API (Actions Only)          │   │
+│  │  - Run, Enrich, Cancel, Export    │   │
+│  └──────────────┬───────────────────┘   │
+└─────────────────┼────────────────────────┘
+                  │
+                  ▼
+    ┌──────────────────────────────────┐
+    │  Express Backend                 │
+    │  - Exa Websets integration       │
+    │  - Firebase writes               │
+    │  - Webhook handlers              │
+    └──────────────┬───────────────────┘
+                   │                    │
+        ┌──────────┴──────────┐         │
+        ▼                     ▼         ▼
+┌─────────────┐      ┌──────────────┐  ┌──────────────┐
+│  Firebase   │      │ Exa Websets  │  │   Frontend   │
+│  Firestore  │◄─────│     API      │  │  (Read Only) │
+│             │      │              │  └──────────────┘
+│  (Writes)   │      │  (Search &   │
+│             │      │  Enrichment) │
+└─────────────┘      └──────────────┘
 ```
+
+### Data Flow
+
+**Reads (Frontend → Firebase):**
+- Frontend uses FN7 SDK to read directly from Firebase
+- Real-time listeners on `leadsetFeed/global` document
+- No backend involved for data reads
+
+**Writes & Actions (Frontend → Backend → Firebase/Exa):**
+- Frontend calls REST API for actions (run, enrich, cancel)
+- Backend handles Exa API calls and Firebase writes
+- Backend updates `leadsetFeed/global` which triggers frontend listeners
 
 ### Key Components
 
