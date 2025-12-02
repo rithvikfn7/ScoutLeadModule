@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: leads-module-backend
+data:
+  PORT: "3000"
+  NODE_ENV: "production"
+  FN7_SDK_MODE: "server"
+  FIREBASE_STORAGE_BUCKET: "your-storage-bucket.appspot.com"
+  # Note: FIREBASE_SERVICE_ACCOUNT_JSON, EXA_API_KEY, EXA_WEBHOOK_SECRET, and WEBHOOK_URL
+  # should be provided as Kubernetes Secrets, not ConfigMaps, for security reasons
+
